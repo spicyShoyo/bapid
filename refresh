@@ -1,0 +1,2 @@
+bazel build  @hedron_compile_commands//:refresh_all && BUILD_WORKSPACE_DIRECTORY=$(pwd) python3 bazel-bin/external/hedron_compile_commands/refresh_all.py
+
