@@ -1,19 +1,25 @@
 #include "src/bapid.h"
-#include <gflags/gflags.h>
-#include <glog/logging.h>
-#include <iostream>
+#include <folly/File.h>
+#include <folly/init/Init.h>
+#include <folly/logging/xlog.h>
 
-int main(int argc, char *argv[]) {
-  google::ParseCommandLineFlags(&argc, &argv, true);
-  FLAGS_timestamp_in_logfile_name = false;
-  google::InitGoogleLogging(argv[0]); // NOLINT
+namespace {
+constexpr mode_t kLogFilePerms = 0644;
+constexpr int kStdoutFileno = 1;
+constexpr int kStderrFileno = 2;
+} // namespace
 
-  std::string logDir = google::GetLoggingDirectories()[0] + "/bapid.log";
-  google::SetLogDestination(google::INFO, logDir.c_str());
-  google::SetLogDestination(google::WARNING, logDir.c_str());
-  google::SetLogDestination(google::ERROR, logDir.c_str());
-  google::SetLogDestination(google::FATAL, logDir.c_str());
+int main(int argc, char **argv) {
+  folly::init(&argc, &argv);
 
-  LOG(INFO) << "init";
+  if (!FLAGS_log_dir.empty()) {
+    folly::File logHandle(FLAGS_log_dir + "/bapid.log",
+                          O_APPEND | O_CREAT | O_WRONLY | O_CLOEXEC,
+                          kLogFilePerms);
+    dup2(logHandle.fd(), kStdoutFileno);
+    dup2(logHandle.fd(), kStderrFileno);
+  }
+
+  XLOG(INFO) << "init";
   return bapid::BapidMain::run();
 }

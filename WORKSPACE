@@ -17,31 +17,9 @@ load("@hedron_compile_commands//:workspace_setup.bzl", "hedron_compile_commands_
 hedron_compile_commands_setup()
 
 http_archive(
-    name = "com_github_gflags_gflags",
-    sha256 = "34af2f15cf7367513b352bdcd2493ab14ce43692d2dcd9dfc499492966c64dcf",
-    strip_prefix = "gflags-2.2.2",
-    urls = ["https://github.com/gflags/gflags/archive/v2.2.2.tar.gz"],
-)
-
-http_archive(
-    name = "com_github_google_glog",
-    sha256 = "122fb6b712808ef43fbf80f75c52a21c9760683dae470154f02bddfc61135022",
-    strip_prefix = "glog-0.6.0",
-    urls = ["https://github.com/google/glog/archive/v0.6.0.zip"],
-)
-
-http_archive(
   name = "com_google_googletest",
   sha256 = "24564e3b712d3eb30ac9a85d92f7d720f60cc0173730ac166f27dda7fed76cb2",
   strip_prefix = "googletest-release-1.12.1",
   urls = ["https://github.com/google/googletest/archive/refs/tags/release-1.12.1.zip"],
-)
-
-http_archive(
-  name = "fmt",
-  sha256 = "01867bffc0b30ac71d5f05854e62e451367fa1aceddef40cae965338a7e00a74",
-  strip_prefix = "fmt-9.0.0",
-  urls = ["https://github.com/fmtlib/fmt/archive/refs/tags/9.0.0.zip"],
-  build_file = "@//:fmt.bazel",
 )
 

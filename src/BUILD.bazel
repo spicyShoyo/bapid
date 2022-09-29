@@ -5,5 +5,4 @@ cc_library(
   name = "lib_bapid",
   srcs = ["bapid.cpp"],
   hdrs = ["bapid.h"],
-  deps = ["@fmt", "@com_github_google_glog//:glog",]
 )

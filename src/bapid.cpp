@@ -1,6 +1,6 @@
 #include "bapid.h"
 #include <fmt/core.h>
-#include <glog/logging.h>
+#include <folly/logging/xlog.h>
 #include <iostream>
 
 namespace bapid {
@@ -9,7 +9,7 @@ constexpr std::string_view kLineFmt{"{:>4}"};
 }
 
 /*static*/ int BapidMain::run() {
-  LOG(INFO) << fmt::format(kLineFmt, "|");
+  XLOG(INFO) << fmt::format(kLineFmt, "|");
   return 0;
 }
 } // namespace bapid

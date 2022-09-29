@@ -9,6 +9,7 @@ Checks: |
   performance-*,
   readability-*,
   -modernize-use-trailing-return-type,
+  -cppcoreguidelines-pro-bounds-array-to-pointer-decay,
 WarningsAsErrors: ''
 CheckOptions:
   - key:             cppcoreguidelines-explicit-virtual-functions.IgnoreDestructors

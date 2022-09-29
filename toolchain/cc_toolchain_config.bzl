@@ -63,6 +63,7 @@ def _impl(ctx):
                                 "/usr/local/lib/libfolly.dylib",
                                 "/usr/local/lib/libfmt.dylib",
                                 "/usr/local/lib/libglog.dylib",
+                                "/usr/local/lib/libgflags.dylib",
                             ],
                         ),
                     ]),
