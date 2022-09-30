@@ -1,1 +1,1 @@
-bazel run --config=clang_config -c dbg $(cat script_target) -- --log_dir=$(pwd)/logs --logbuflevel=-1
+bazel run -c dbg $(cat script_target) -- --log_dir=$(pwd)/logs --logbuflevel=-1

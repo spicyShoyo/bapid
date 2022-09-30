@@ -1,2 +1,2 @@
-bazel build --config=clang_config -c dbg $(cat script_target) && lldb ./bazel-bin/$(cat script_target)
+bazel build -c dbg $(cat script_target) && lldb ./bazel-bin/$(cat script_target)
 
