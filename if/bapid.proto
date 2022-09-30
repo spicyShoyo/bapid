@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+service BapidService {
+  rpc Ping (PingRequest) returns (PingReply) {}
+}
+
+message PingRequest {
+  string name = 1;
+}
+
+message PingReply {
+  string message = 1;
+}

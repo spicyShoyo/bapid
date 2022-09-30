@@ -64,6 +64,7 @@ def _impl(ctx):
                                 "/usr/local/lib/libfmt.dylib",
                                 "/usr/local/lib/libglog.dylib",
                                 "/usr/local/lib/libgflags.dylib",
+                                "/usr/local/lib/libgrpc++.1.49.0.dylib",
                             ],
                         ),
                     ]),
