@@ -1,5 +1,4 @@
-load("@rules_proto_grpc//cpp:defs.bzl", "cpp_grpc_library", "cpp_grpc_compile")
-load(":filter_files.bzl", "filter_files")
+load("@rules_proto_grpc//cpp:defs.bzl", "cpp_grpc_compile")
 load("@rules_cc//cc:defs.bzl", "cc_library", "cc_binary")
 
 package(default_visibility = ["//visibility:public"])
@@ -9,34 +8,19 @@ proto_library(
   srcs = ["bapid.proto"]
 )
 
-name_rpc = "rpc"
 cpp_grpc_compile(
-  name = name_rpc,
+  name = "rpc",
   protos = [":if"],
-)
-
-filter_files(
-  name = name_rpc + "_srcs",
-  target = name_rpc,
-  extensions = ["cc"],
-)
-
-filter_files(
-  name = name_rpc + "_hdrs",
-  target = name_rpc,
-  extensions = ["h"],
 )
 
 cc_library(
   name = "rpc_lib",
-  srcs = [name_rpc],
-  include_prefix = "lib",
-  strip_include_prefix = "if",
-  includes = [name_rpc],
+  srcs = ["rpc"],
+  includes = ["rpc"],
 )
 
 cc_binary(
-  name = "rpc_test",
+  name = "rpc_greeter",
   srcs = ["main.cpp"],
   deps = [":rpc_lib"],
 )

@@ -1,1 +1,1 @@
-mkdir -p proto && bazel build --config=clang_config :rpc && cp -f ../bazel-bin/if/rpc/if/* proto
+mkdir -p if && bazel build :rpc && cp -f ../bazel-bin/if/rpc/if/* if
