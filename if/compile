@@ -1,1 +1,0 @@
-mkdir -p if && bazel build :rpc && cp -f ../bazel-bin/if/rpc/if/* if

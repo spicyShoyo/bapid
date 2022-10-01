@@ -19,8 +19,3 @@ cc_library(
   includes = ["rpc"],
 )
 
-cc_binary(
-  name = "rpc_greeter",
-  srcs = ["main.cpp"],
-  deps = [":rpc_lib"],
-)
