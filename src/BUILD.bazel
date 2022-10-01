@@ -6,3 +6,10 @@ cc_library(
   srcs = ["bapid.cpp"],
   hdrs = ["bapid.h"],
 )
+
+cc_library(
+  name = "server",
+  srcs = ["bapid_server.cpp"],
+  hdrs = ["bapid_server.h"],
+)
+
