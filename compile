@@ -1,0 +1,2 @@
+IF_DIR=examples/if
+mkdir -p ${IF_DIR} && bazel build //if:rpc && cp -f bazel-bin/if/rpc/if/* ${IF_DIR}/.
