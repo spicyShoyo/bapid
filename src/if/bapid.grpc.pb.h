@@ -42,6 +42,13 @@ class BapidService final {
     std::unique_ptr< ::grpc::ClientAsyncResponseReaderInterface< ::bapid::PingReply>> PrepareAsyncPing(::grpc::ClientContext* context, const ::bapid::PingRequest& request, ::grpc::CompletionQueue* cq) {
       return std::unique_ptr< ::grpc::ClientAsyncResponseReaderInterface< ::bapid::PingReply>>(PrepareAsyncPingRaw(context, request, cq));
     }
+    virtual ::grpc::Status Ping2(::grpc::ClientContext* context, const ::bapid::PingRequest& request, ::bapid::PingReply* response) = 0;
+    std::unique_ptr< ::grpc::ClientAsyncResponseReaderInterface< ::bapid::PingReply>> AsyncPing2(::grpc::ClientContext* context, const ::bapid::PingRequest& request, ::grpc::CompletionQueue* cq) {
+      return std::unique_ptr< ::grpc::ClientAsyncResponseReaderInterface< ::bapid::PingReply>>(AsyncPing2Raw(context, request, cq));
+    }
+    std::unique_ptr< ::grpc::ClientAsyncResponseReaderInterface< ::bapid::PingReply>> PrepareAsyncPing2(::grpc::ClientContext* context, const ::bapid::PingRequest& request, ::grpc::CompletionQueue* cq) {
+      return std::unique_ptr< ::grpc::ClientAsyncResponseReaderInterface< ::bapid::PingReply>>(PrepareAsyncPing2Raw(context, request, cq));
+    }
     virtual ::grpc::Status Shutdown(::grpc::ClientContext* context, const ::bapid::Empty& request, ::bapid::Empty* response) = 0;
     std::unique_ptr< ::grpc::ClientAsyncResponseReaderInterface< ::bapid::Empty>> AsyncShutdown(::grpc::ClientContext* context, const ::bapid::Empty& request, ::grpc::CompletionQueue* cq) {
       return std::unique_ptr< ::grpc::ClientAsyncResponseReaderInterface< ::bapid::Empty>>(AsyncShutdownRaw(context, request, cq));
@@ -54,6 +61,8 @@ class BapidService final {
       virtual ~async_interface() {}
       virtual void Ping(::grpc::ClientContext* context, const ::bapid::PingRequest* request, ::bapid::PingReply* response, std::function<void(::grpc::Status)>) = 0;
       virtual void Ping(::grpc::ClientContext* context, const ::bapid::PingRequest* request, ::bapid::PingReply* response, ::grpc::ClientUnaryReactor* reactor) = 0;
+      virtual void Ping2(::grpc::ClientContext* context, const ::bapid::PingRequest* request, ::bapid::PingReply* response, std::function<void(::grpc::Status)>) = 0;
+      virtual void Ping2(::grpc::ClientContext* context, const ::bapid::PingRequest* request, ::bapid::PingReply* response, ::grpc::ClientUnaryReactor* reactor) = 0;
       virtual void Shutdown(::grpc::ClientContext* context, const ::bapid::Empty* request, ::bapid::Empty* response, std::function<void(::grpc::Status)>) = 0;
       virtual void Shutdown(::grpc::ClientContext* context, const ::bapid::Empty* request, ::bapid::Empty* response, ::grpc::ClientUnaryReactor* reactor) = 0;
     };
@@ -63,6 +72,8 @@ class BapidService final {
    private:
     virtual ::grpc::ClientAsyncResponseReaderInterface< ::bapid::PingReply>* AsyncPingRaw(::grpc::ClientContext* context, const ::bapid::PingRequest& request, ::grpc::CompletionQueue* cq) = 0;
     virtual ::grpc::ClientAsyncResponseReaderInterface< ::bapid::PingReply>* PrepareAsyncPingRaw(::grpc::ClientContext* context, const ::bapid::PingRequest& request, ::grpc::CompletionQueue* cq) = 0;
+    virtual ::grpc::ClientAsyncResponseReaderInterface< ::bapid::PingReply>* AsyncPing2Raw(::grpc::ClientContext* context, const ::bapid::PingRequest& request, ::grpc::CompletionQueue* cq) = 0;
+    virtual ::grpc::ClientAsyncResponseReaderInterface< ::bapid::PingReply>* PrepareAsyncPing2Raw(::grpc::ClientContext* context, const ::bapid::PingRequest& request, ::grpc::CompletionQueue* cq) = 0;
     virtual ::grpc::ClientAsyncResponseReaderInterface< ::bapid::Empty>* AsyncShutdownRaw(::grpc::ClientContext* context, const ::bapid::Empty& request, ::grpc::CompletionQueue* cq) = 0;
     virtual ::grpc::ClientAsyncResponseReaderInterface< ::bapid::Empty>* PrepareAsyncShutdownRaw(::grpc::ClientContext* context, const ::bapid::Empty& request, ::grpc::CompletionQueue* cq) = 0;
   };
@@ -76,6 +87,13 @@ class BapidService final {
     std::unique_ptr< ::grpc::ClientAsyncResponseReader< ::bapid::PingReply>> PrepareAsyncPing(::grpc::ClientContext* context, const ::bapid::PingRequest& request, ::grpc::CompletionQueue* cq) {
       return std::unique_ptr< ::grpc::ClientAsyncResponseReader< ::bapid::PingReply>>(PrepareAsyncPingRaw(context, request, cq));
     }
+    ::grpc::Status Ping2(::grpc::ClientContext* context, const ::bapid::PingRequest& request, ::bapid::PingReply* response) override;
+    std::unique_ptr< ::grpc::ClientAsyncResponseReader< ::bapid::PingReply>> AsyncPing2(::grpc::ClientContext* context, const ::bapid::PingRequest& request, ::grpc::CompletionQueue* cq) {
+      return std::unique_ptr< ::grpc::ClientAsyncResponseReader< ::bapid::PingReply>>(AsyncPing2Raw(context, request, cq));
+    }
+    std::unique_ptr< ::grpc::ClientAsyncResponseReader< ::bapid::PingReply>> PrepareAsyncPing2(::grpc::ClientContext* context, const ::bapid::PingRequest& request, ::grpc::CompletionQueue* cq) {
+      return std::unique_ptr< ::grpc::ClientAsyncResponseReader< ::bapid::PingReply>>(PrepareAsyncPing2Raw(context, request, cq));
+    }
     ::grpc::Status Shutdown(::grpc::ClientContext* context, const ::bapid::Empty& request, ::bapid::Empty* response) override;
     std::unique_ptr< ::grpc::ClientAsyncResponseReader< ::bapid::Empty>> AsyncShutdown(::grpc::ClientContext* context, const ::bapid::Empty& request, ::grpc::CompletionQueue* cq) {
       return std::unique_ptr< ::grpc::ClientAsyncResponseReader< ::bapid::Empty>>(AsyncShutdownRaw(context, request, cq));
@@ -88,6 +106,8 @@ class BapidService final {
      public:
       void Ping(::grpc::ClientContext* context, const ::bapid::PingRequest* request, ::bapid::PingReply* response, std::function<void(::grpc::Status)>) override;
       void Ping(::grpc::ClientContext* context, const ::bapid::PingRequest* request, ::bapid::PingReply* response, ::grpc::ClientUnaryReactor* reactor) override;
+      void Ping2(::grpc::ClientContext* context, const ::bapid::PingRequest* request, ::bapid::PingReply* response, std::function<void(::grpc::Status)>) override;
+      void Ping2(::grpc::ClientContext* context, const ::bapid::PingRequest* request, ::bapid::PingReply* response, ::grpc::ClientUnaryReactor* reactor) override;
       void Shutdown(::grpc::ClientContext* context, const ::bapid::Empty* request, ::bapid::Empty* response, std::function<void(::grpc::Status)>) override;
       void Shutdown(::grpc::ClientContext* context, const ::bapid::Empty* request, ::bapid::Empty* response, ::grpc::ClientUnaryReactor* reactor) override;
      private:
@@ -103,9 +123,12 @@ class BapidService final {
     class async async_stub_{this};
     ::grpc::ClientAsyncResponseReader< ::bapid::PingReply>* AsyncPingRaw(::grpc::ClientContext* context, const ::bapid::PingRequest& request, ::grpc::CompletionQueue* cq) override;
     ::grpc::ClientAsyncResponseReader< ::bapid::PingReply>* PrepareAsyncPingRaw(::grpc::ClientContext* context, const ::bapid::PingRequest& request, ::grpc::CompletionQueue* cq) override;
+    ::grpc::ClientAsyncResponseReader< ::bapid::PingReply>* AsyncPing2Raw(::grpc::ClientContext* context, const ::bapid::PingRequest& request, ::grpc::CompletionQueue* cq) override;
+    ::grpc::ClientAsyncResponseReader< ::bapid::PingReply>* PrepareAsyncPing2Raw(::grpc::ClientContext* context, const ::bapid::PingRequest& request, ::grpc::CompletionQueue* cq) override;
     ::grpc::ClientAsyncResponseReader< ::bapid::Empty>* AsyncShutdownRaw(::grpc::ClientContext* context, const ::bapid::Empty& request, ::grpc::CompletionQueue* cq) override;
     ::grpc::ClientAsyncResponseReader< ::bapid::Empty>* PrepareAsyncShutdownRaw(::grpc::ClientContext* context, const ::bapid::Empty& request, ::grpc::CompletionQueue* cq) override;
     const ::grpc::internal::RpcMethod rpcmethod_Ping_;
+    const ::grpc::internal::RpcMethod rpcmethod_Ping2_;
     const ::grpc::internal::RpcMethod rpcmethod_Shutdown_;
   };
   static std::unique_ptr<Stub> NewStub(const std::shared_ptr< ::grpc::ChannelInterface>& channel, const ::grpc::StubOptions& options = ::grpc::StubOptions());
@@ -115,6 +138,7 @@ class BapidService final {
     Service();
     virtual ~Service();
     virtual ::grpc::Status Ping(::grpc::ServerContext* context, const ::bapid::PingRequest* request, ::bapid::PingReply* response);
+    virtual ::grpc::Status Ping2(::grpc::ServerContext* context, const ::bapid::PingRequest* request, ::bapid::PingReply* response);
     virtual ::grpc::Status Shutdown(::grpc::ServerContext* context, const ::bapid::Empty* request, ::bapid::Empty* response);
   };
   template <class BaseClass>
@@ -138,12 +162,32 @@ class BapidService final {
     }
   };
   template <class BaseClass>
+  class WithAsyncMethod_Ping2 : public BaseClass {
+   private:
+    void BaseClassMustBeDerivedFromService(const Service* /*service*/) {}
+   public:
+    WithAsyncMethod_Ping2() {
+      ::grpc::Service::MarkMethodAsync(1);
+    }
+    ~WithAsyncMethod_Ping2() override {
+      BaseClassMustBeDerivedFromService(this);
+    }
+    // disable synchronous version of this method
+    ::grpc::Status Ping2(::grpc::ServerContext* /*context*/, const ::bapid::PingRequest* /*request*/, ::bapid::PingReply* /*response*/) override {
+      abort();
+      return ::grpc::Status(::grpc::StatusCode::UNIMPLEMENTED, "");
+    }
+    void RequestPing2(::grpc::ServerContext* context, ::bapid::PingRequest* request, ::grpc::ServerAsyncResponseWriter< ::bapid::PingReply>* response, ::grpc::CompletionQueue* new_call_cq, ::grpc::ServerCompletionQueue* notification_cq, void *tag) {
+      ::grpc::Service::RequestAsyncUnary(1, context, request, response, new_call_cq, notification_cq, tag);
+    }
+  };
+  template <class BaseClass>
   class WithAsyncMethod_Shutdown : public BaseClass {
    private:
     void BaseClassMustBeDerivedFromService(const Service* /*service*/) {}
    public:
     WithAsyncMethod_Shutdown() {
-      ::grpc::Service::MarkMethodAsync(1);
+      ::grpc::Service::MarkMethodAsync(2);
     }
     ~WithAsyncMethod_Shutdown() override {
       BaseClassMustBeDerivedFromService(this);
@@ -154,10 +198,10 @@ class BapidService final {
       return ::grpc::Status(::grpc::StatusCode::UNIMPLEMENTED, "");
     }
     void RequestShutdown(::grpc::ServerContext* context, ::bapid::Empty* request, ::grpc::ServerAsyncResponseWriter< ::bapid::Empty>* response, ::grpc::CompletionQueue* new_call_cq, ::grpc::ServerCompletionQueue* notification_cq, void *tag) {
-      ::grpc::Service::RequestAsyncUnary(1, context, request, response, new_call_cq, notification_cq, tag);
+      ::grpc::Service::RequestAsyncUnary(2, context, request, response, new_call_cq, notification_cq, tag);
     }
   };
-  typedef WithAsyncMethod_Ping<WithAsyncMethod_Shutdown<Service > > AsyncService;
+  typedef WithAsyncMethod_Ping<WithAsyncMethod_Ping2<WithAsyncMethod_Shutdown<Service > > > AsyncService;
   template <class BaseClass>
   class WithCallbackMethod_Ping : public BaseClass {
    private:
@@ -186,18 +230,45 @@ class BapidService final {
       ::grpc::CallbackServerContext* /*context*/, const ::bapid::PingRequest* /*request*/, ::bapid::PingReply* /*response*/)  { return nullptr; }
   };
   template <class BaseClass>
+  class WithCallbackMethod_Ping2 : public BaseClass {
+   private:
+    void BaseClassMustBeDerivedFromService(const Service* /*service*/) {}
+   public:
+    WithCallbackMethod_Ping2() {
+      ::grpc::Service::MarkMethodCallback(1,
+          new ::grpc::internal::CallbackUnaryHandler< ::bapid::PingRequest, ::bapid::PingReply>(
+            [this](
+                   ::grpc::CallbackServerContext* context, const ::bapid::PingRequest* request, ::bapid::PingReply* response) { return this->Ping2(context, request, response); }));}
+    void SetMessageAllocatorFor_Ping2(
+        ::grpc::MessageAllocator< ::bapid::PingRequest, ::bapid::PingReply>* allocator) {
+      ::grpc::internal::MethodHandler* const handler = ::grpc::Service::GetHandler(1);
+      static_cast<::grpc::internal::CallbackUnaryHandler< ::bapid::PingRequest, ::bapid::PingReply>*>(handler)
+              ->SetMessageAllocator(allocator);
+    }
+    ~WithCallbackMethod_Ping2() override {
+      BaseClassMustBeDerivedFromService(this);
+    }
+    // disable synchronous version of this method
+    ::grpc::Status Ping2(::grpc::ServerContext* /*context*/, const ::bapid::PingRequest* /*request*/, ::bapid::PingReply* /*response*/) override {
+      abort();
+      return ::grpc::Status(::grpc::StatusCode::UNIMPLEMENTED, "");
+    }
+    virtual ::grpc::ServerUnaryReactor* Ping2(
+      ::grpc::CallbackServerContext* /*context*/, const ::bapid::PingRequest* /*request*/, ::bapid::PingReply* /*response*/)  { return nullptr; }
+  };
+  template <class BaseClass>
   class WithCallbackMethod_Shutdown : public BaseClass {
    private:
     void BaseClassMustBeDerivedFromService(const Service* /*service*/) {}
    public:
     WithCallbackMethod_Shutdown() {
-      ::grpc::Service::MarkMethodCallback(1,
+      ::grpc::Service::MarkMethodCallback(2,
           new ::grpc::internal::CallbackUnaryHandler< ::bapid::Empty, ::bapid::Empty>(
             [this](
                    ::grpc::CallbackServerContext* context, const ::bapid::Empty* request, ::bapid::Empty* response) { return this->Shutdown(context, request, response); }));}
     void SetMessageAllocatorFor_Shutdown(
         ::grpc::MessageAllocator< ::bapid::Empty, ::bapid::Empty>* allocator) {
-      ::grpc::internal::MethodHandler* const handler = ::grpc::Service::GetHandler(1);
+      ::grpc::internal::MethodHandler* const handler = ::grpc::Service::GetHandler(2);
       static_cast<::grpc::internal::CallbackUnaryHandler< ::bapid::Empty, ::bapid::Empty>*>(handler)
               ->SetMessageAllocator(allocator);
     }
@@ -212,7 +283,7 @@ class BapidService final {
     virtual ::grpc::ServerUnaryReactor* Shutdown(
       ::grpc::CallbackServerContext* /*context*/, const ::bapid::Empty* /*request*/, ::bapid::Empty* /*response*/)  { return nullptr; }
   };
-  typedef WithCallbackMethod_Ping<WithCallbackMethod_Shutdown<Service > > CallbackService;
+  typedef WithCallbackMethod_Ping<WithCallbackMethod_Ping2<WithCallbackMethod_Shutdown<Service > > > CallbackService;
   typedef CallbackService ExperimentalCallbackService;
   template <class BaseClass>
   class WithGenericMethod_Ping : public BaseClass {
@@ -232,12 +303,29 @@ class BapidService final {
     }
   };
   template <class BaseClass>
+  class WithGenericMethod_Ping2 : public BaseClass {
+   private:
+    void BaseClassMustBeDerivedFromService(const Service* /*service*/) {}
+   public:
+    WithGenericMethod_Ping2() {
+      ::grpc::Service::MarkMethodGeneric(1);
+    }
+    ~WithGenericMethod_Ping2() override {
+      BaseClassMustBeDerivedFromService(this);
+    }
+    // disable synchronous version of this method
+    ::grpc::Status Ping2(::grpc::ServerContext* /*context*/, const ::bapid::PingRequest* /*request*/, ::bapid::PingReply* /*response*/) override {
+      abort();
+      return ::grpc::Status(::grpc::StatusCode::UNIMPLEMENTED, "");
+    }
+  };
+  template <class BaseClass>
   class WithGenericMethod_Shutdown : public BaseClass {
    private:
     void BaseClassMustBeDerivedFromService(const Service* /*service*/) {}
    public:
     WithGenericMethod_Shutdown() {
-      ::grpc::Service::MarkMethodGeneric(1);
+      ::grpc::Service::MarkMethodGeneric(2);
     }
     ~WithGenericMethod_Shutdown() override {
       BaseClassMustBeDerivedFromService(this);
@@ -269,12 +357,32 @@ class BapidService final {
     }
   };
   template <class BaseClass>
+  class WithRawMethod_Ping2 : public BaseClass {
+   private:
+    void BaseClassMustBeDerivedFromService(const Service* /*service*/) {}
+   public:
+    WithRawMethod_Ping2() {
+      ::grpc::Service::MarkMethodRaw(1);
+    }
+    ~WithRawMethod_Ping2() override {
+      BaseClassMustBeDerivedFromService(this);
+    }
+    // disable synchronous version of this method
+    ::grpc::Status Ping2(::grpc::ServerContext* /*context*/, const ::bapid::PingRequest* /*request*/, ::bapid::PingReply* /*response*/) override {
+      abort();
+      return ::grpc::Status(::grpc::StatusCode::UNIMPLEMENTED, "");
+    }
+    void RequestPing2(::grpc::ServerContext* context, ::grpc::ByteBuffer* request, ::grpc::ServerAsyncResponseWriter< ::grpc::ByteBuffer>* response, ::grpc::CompletionQueue* new_call_cq, ::grpc::ServerCompletionQueue* notification_cq, void *tag) {
+      ::grpc::Service::RequestAsyncUnary(1, context, request, response, new_call_cq, notification_cq, tag);
+    }
+  };
+  template <class BaseClass>
   class WithRawMethod_Shutdown : public BaseClass {
    private:
     void BaseClassMustBeDerivedFromService(const Service* /*service*/) {}
    public:
     WithRawMethod_Shutdown() {
-      ::grpc::Service::MarkMethodRaw(1);
+      ::grpc::Service::MarkMethodRaw(2);
     }
     ~WithRawMethod_Shutdown() override {
       BaseClassMustBeDerivedFromService(this);
@@ -285,7 +393,7 @@ class BapidService final {
       return ::grpc::Status(::grpc::StatusCode::UNIMPLEMENTED, "");
     }
     void RequestShutdown(::grpc::ServerContext* context, ::grpc::ByteBuffer* request, ::grpc::ServerAsyncResponseWriter< ::grpc::ByteBuffer>* response, ::grpc::CompletionQueue* new_call_cq, ::grpc::ServerCompletionQueue* notification_cq, void *tag) {
-      ::grpc::Service::RequestAsyncUnary(1, context, request, response, new_call_cq, notification_cq, tag);
+      ::grpc::Service::RequestAsyncUnary(2, context, request, response, new_call_cq, notification_cq, tag);
     }
   };
   template <class BaseClass>
@@ -311,12 +419,34 @@ class BapidService final {
       ::grpc::CallbackServerContext* /*context*/, const ::grpc::ByteBuffer* /*request*/, ::grpc::ByteBuffer* /*response*/)  { return nullptr; }
   };
   template <class BaseClass>
+  class WithRawCallbackMethod_Ping2 : public BaseClass {
+   private:
+    void BaseClassMustBeDerivedFromService(const Service* /*service*/) {}
+   public:
+    WithRawCallbackMethod_Ping2() {
+      ::grpc::Service::MarkMethodRawCallback(1,
+          new ::grpc::internal::CallbackUnaryHandler< ::grpc::ByteBuffer, ::grpc::ByteBuffer>(
+            [this](
+                   ::grpc::CallbackServerContext* context, const ::grpc::ByteBuffer* request, ::grpc::ByteBuffer* response) { return this->Ping2(context, request, response); }));
+    }
+    ~WithRawCallbackMethod_Ping2() override {
+      BaseClassMustBeDerivedFromService(this);
+    }
+    // disable synchronous version of this method
+    ::grpc::Status Ping2(::grpc::ServerContext* /*context*/, const ::bapid::PingRequest* /*request*/, ::bapid::PingReply* /*response*/) override {
+      abort();
+      return ::grpc::Status(::grpc::StatusCode::UNIMPLEMENTED, "");
+    }
+    virtual ::grpc::ServerUnaryReactor* Ping2(
+      ::grpc::CallbackServerContext* /*context*/, const ::grpc::ByteBuffer* /*request*/, ::grpc::ByteBuffer* /*response*/)  { return nullptr; }
+  };
+  template <class BaseClass>
   class WithRawCallbackMethod_Shutdown : public BaseClass {
    private:
     void BaseClassMustBeDerivedFromService(const Service* /*service*/) {}
    public:
     WithRawCallbackMethod_Shutdown() {
-      ::grpc::Service::MarkMethodRawCallback(1,
+      ::grpc::Service::MarkMethodRawCallback(2,
           new ::grpc::internal::CallbackUnaryHandler< ::grpc::ByteBuffer, ::grpc::ByteBuffer>(
             [this](
                    ::grpc::CallbackServerContext* context, const ::grpc::ByteBuffer* request, ::grpc::ByteBuffer* response) { return this->Shutdown(context, request, response); }));
@@ -360,12 +490,39 @@ class BapidService final {
     virtual ::grpc::Status StreamedPing(::grpc::ServerContext* context, ::grpc::ServerUnaryStreamer< ::bapid::PingRequest,::bapid::PingReply>* server_unary_streamer) = 0;
   };
   template <class BaseClass>
+  class WithStreamedUnaryMethod_Ping2 : public BaseClass {
+   private:
+    void BaseClassMustBeDerivedFromService(const Service* /*service*/) {}
+   public:
+    WithStreamedUnaryMethod_Ping2() {
+      ::grpc::Service::MarkMethodStreamed(1,
+        new ::grpc::internal::StreamedUnaryHandler<
+          ::bapid::PingRequest, ::bapid::PingReply>(
+            [this](::grpc::ServerContext* context,
+                   ::grpc::ServerUnaryStreamer<
+                     ::bapid::PingRequest, ::bapid::PingReply>* streamer) {
+                       return this->StreamedPing2(context,
+                         streamer);
+                  }));
+    }
+    ~WithStreamedUnaryMethod_Ping2() override {
+      BaseClassMustBeDerivedFromService(this);
+    }
+    // disable regular version of this method
+    ::grpc::Status Ping2(::grpc::ServerContext* /*context*/, const ::bapid::PingRequest* /*request*/, ::bapid::PingReply* /*response*/) override {
+      abort();
+      return ::grpc::Status(::grpc::StatusCode::UNIMPLEMENTED, "");
+    }
+    // replace default version of method with streamed unary
+    virtual ::grpc::Status StreamedPing2(::grpc::ServerContext* context, ::grpc::ServerUnaryStreamer< ::bapid::PingRequest,::bapid::PingReply>* server_unary_streamer) = 0;
+  };
+  template <class BaseClass>
   class WithStreamedUnaryMethod_Shutdown : public BaseClass {
    private:
     void BaseClassMustBeDerivedFromService(const Service* /*service*/) {}
    public:
     WithStreamedUnaryMethod_Shutdown() {
-      ::grpc::Service::MarkMethodStreamed(1,
+      ::grpc::Service::MarkMethodStreamed(2,
         new ::grpc::internal::StreamedUnaryHandler<
           ::bapid::Empty, ::bapid::Empty>(
             [this](::grpc::ServerContext* context,
@@ -386,9 +543,9 @@ class BapidService final {
     // replace default version of method with streamed unary
     virtual ::grpc::Status StreamedShutdown(::grpc::ServerContext* context, ::grpc::ServerUnaryStreamer< ::bapid::Empty,::bapid::Empty>* server_unary_streamer) = 0;
   };
-  typedef WithStreamedUnaryMethod_Ping<WithStreamedUnaryMethod_Shutdown<Service > > StreamedUnaryService;
+  typedef WithStreamedUnaryMethod_Ping<WithStreamedUnaryMethod_Ping2<WithStreamedUnaryMethod_Shutdown<Service > > > StreamedUnaryService;
   typedef Service SplitStreamedService;
-  typedef WithStreamedUnaryMethod_Ping<WithStreamedUnaryMethod_Shutdown<Service > > StreamedService;
+  typedef WithStreamedUnaryMethod_Ping<WithStreamedUnaryMethod_Ping2<WithStreamedUnaryMethod_Shutdown<Service > > > StreamedService;
 };
 
 }  // namespace bapid

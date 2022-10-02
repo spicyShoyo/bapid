@@ -1,1 +1,1 @@
-python3 cli.py ${@}
+python3 ctl.py ${@}

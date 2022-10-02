@@ -22,6 +22,14 @@ def list(*_):
 def ping(*_):
     check_call(["grpc_cli", "call", GRPC_ADDR, "Ping", "name: 'ok'"])
 
+@register("ping2")
+def ping2(*_):
+    check_call(["grpc_cli", "call", GRPC_ADDR, "Ping2", "name: 'ok'"])
+
+@register("shutdown")
+def shutdown(*_):
+    check_call(["grpc_cli", "call", GRPC_ADDR, "Shutdown", ""])
+
 if __name__ == "__main__":
     if len(sys.argv) == 1:
         print('cmd: ', REGISTRY.keys())

@@ -100,14 +100,15 @@ static const ::_pb::Message* const file_default_instances[] = {
 const char descriptor_table_protodef_if_2fbapid_2eproto[] PROTOBUF_SECTION_VARIABLE(protodesc_cold) =
   "\n\016if/bapid.proto\022\005bapid\"\007\n\005Empty\"!\n\013Ping"
   "Request\022\022\n\004name\030\001 \001(\tR\004name\"%\n\tPingReply"
-  "\022\030\n\007message\030\001 \001(\tR\007message2h\n\014BapidServi"
-  "ce\022.\n\004Ping\022\022.bapid.PingRequest\032\020.bapid.P"
-  "ingReply\"\000\022(\n\010Shutdown\022\014.bapid.Empty\032\014.b"
-  "apid.Empty\"\000b\006proto3"
+  "\022\030\n\007message\030\001 \001(\tR\007message2\231\001\n\014BapidServ"
+  "ice\022.\n\004Ping\022\022.bapid.PingRequest\032\020.bapid."
+  "PingReply\"\000\022/\n\005Ping2\022\022.bapid.PingRequest"
+  "\032\020.bapid.PingReply\"\000\022(\n\010Shutdown\022\014.bapid"
+  ".Empty\032\014.bapid.Empty\"\000b\006proto3"
   ;
 static ::_pbi::once_flag descriptor_table_if_2fbapid_2eproto_once;
 const ::_pbi::DescriptorTable descriptor_table_if_2fbapid_2eproto = {
-    false, false, 220, descriptor_table_protodef_if_2fbapid_2eproto,
+    false, false, 270, descriptor_table_protodef_if_2fbapid_2eproto,
     "if/bapid.proto",
     &descriptor_table_if_2fbapid_2eproto_once, nullptr, 0, 3,
     schemas, file_default_instances, TableStruct_if_2fbapid_2eproto::offsets,

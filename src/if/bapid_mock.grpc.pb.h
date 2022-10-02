@@ -15,6 +15,9 @@ class MockBapidServiceStub : public BapidService::StubInterface {
   MOCK_METHOD3(Ping, ::grpc::Status(::grpc::ClientContext* context, const ::bapid::PingRequest& request, ::bapid::PingReply* response));
   MOCK_METHOD3(AsyncPingRaw, ::grpc::ClientAsyncResponseReaderInterface< ::bapid::PingReply>*(::grpc::ClientContext* context, const ::bapid::PingRequest& request, ::grpc::CompletionQueue* cq));
   MOCK_METHOD3(PrepareAsyncPingRaw, ::grpc::ClientAsyncResponseReaderInterface< ::bapid::PingReply>*(::grpc::ClientContext* context, const ::bapid::PingRequest& request, ::grpc::CompletionQueue* cq));
+  MOCK_METHOD3(Ping2, ::grpc::Status(::grpc::ClientContext* context, const ::bapid::PingRequest& request, ::bapid::PingReply* response));
+  MOCK_METHOD3(AsyncPing2Raw, ::grpc::ClientAsyncResponseReaderInterface< ::bapid::PingReply>*(::grpc::ClientContext* context, const ::bapid::PingRequest& request, ::grpc::CompletionQueue* cq));
+  MOCK_METHOD3(PrepareAsyncPing2Raw, ::grpc::ClientAsyncResponseReaderInterface< ::bapid::PingReply>*(::grpc::ClientContext* context, const ::bapid::PingRequest& request, ::grpc::CompletionQueue* cq));
   MOCK_METHOD3(Shutdown, ::grpc::Status(::grpc::ClientContext* context, const ::bapid::Empty& request, ::bapid::Empty* response));
   MOCK_METHOD3(AsyncShutdownRaw, ::grpc::ClientAsyncResponseReaderInterface< ::bapid::Empty>*(::grpc::ClientContext* context, const ::bapid::Empty& request, ::grpc::CompletionQueue* cq));
   MOCK_METHOD3(PrepareAsyncShutdownRaw, ::grpc::ClientAsyncResponseReaderInterface< ::bapid::Empty>*(::grpc::ClientContext* context, const ::bapid::Empty& request, ::grpc::CompletionQueue* cq));

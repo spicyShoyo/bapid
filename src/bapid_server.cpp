@@ -1,5 +1,7 @@
 #include "src/bapid_server.h"
 #include "if/bapid.grpc.pb.h"
+#include <atomic>
+#include <folly/logging/xlog.h>
 
 namespace bapid {
 
@@ -11,22 +13,39 @@ BapidServer::BapidServer(std::string addr) : addr_{std::move(addr)} {
   server_ = builder.BuildAndStart();
 }
 
-BapidServer::~BapidServer() {
-  server_->Shutdown();
-  cq_->Shutdown();
-}
-
 void PingHandler::process() { reply_.set_message("hi: " + request_.name()); }
+void Ping2Handler::process() { reply_.set_message("hi2: " + request_.name()); }
+void ShutdownHandler::process() { data_.server->initiateShutdown(); }
 
 void BapidServer::serve() {
-  new PingHandler::type(&service_, cq_.get());
+  CallData data{this, &service_, cq_.get()};
+  new PingHandler::type(data);
+  new Ping2Handler::type(data);
+  new ShutdownHandler::type(data);
+
+  SCOPE_EXIT {
+    XLOG(INFO) << "shutdown..."; // NOLINT
+    server_->Shutdown();
+    XLOG(INFO) << "shutdown server"; // NOLINT
+    cq_->Shutdown();
+    XLOG(INFO) << "shutdown finish"; // NOLINT
+  };
 
   void *tag{};
   bool ok{false};
-  while (true) {
-    cq_->Next(&tag, &ok);
-    static_cast<PingHandler::type *>(tag)->proceed();
+  while (cq_->Next(&tag, &ok)) {
+    if (!ok) {
+      break;
+    }
+
+    (*static_cast<ProceedFn *>(tag))();
+
+    if (shutdownRequested_.load(std::memory_order_relaxed)) {
+      break;
+    }
   }
 }
+
+void BapidServer::initiateShutdown() { shutdownRequested_.store(true); }
 
 } // namespace bapid
