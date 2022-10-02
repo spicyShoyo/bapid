@@ -2,12 +2,6 @@ load("@rules_cc//cc:defs.bzl", "cc_binary")
 package(default_visibility = ["//visibility:public"])
 
 cc_library(
-  name = "lib_bapid",
-  srcs = ["bapid.cpp"],
-  hdrs = ["bapid.h"],
-)
-
-cc_library(
   name = "server",
   srcs = ["bapid_server.cpp"],
   hdrs = ["bapid_server.h"],

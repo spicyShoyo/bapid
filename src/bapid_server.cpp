@@ -28,13 +28,11 @@ BapidServer::BapidServer(std::string addr) : addr_{std::move(addr)} {
 }
 
 void PingHandler::process() { reply_.set_message("hi: " + request_.name()); }
-void Ping2Handler::process() { reply_.set_message("hi2: " + request_.name()); }
 void ShutdownHandler::process() { data_.server->initiateShutdown(); }
 
 void BapidServer::serve() {
   CallData data{this, &service_, cq_.get()};
   new PingHandler::type(data);
-  new Ping2Handler::type(data);
   new ShutdownHandler::type(data);
 
   void *tag{};

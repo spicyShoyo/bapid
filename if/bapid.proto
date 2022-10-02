@@ -4,7 +4,6 @@ package bapid;
 
 service BapidService {
   rpc Ping (PingRequest) returns (PingReply) {}
-  rpc Ping2 (PingRequest) returns (PingReply) {}
   rpc Shutdown (Empty) returns (Empty) {}
 }
 

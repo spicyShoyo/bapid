@@ -81,13 +81,6 @@ class PingHandler
   void process();
 };
 
-class Ping2Handler
-    : public HandlerBase<Ping2Handler,
-                         &BapidService::AsyncService::RequestPing2> {
-  friend HandlerBase;
-  void process();
-};
-
 class ShutdownHandler
     : public HandlerBase<ShutdownHandler,
                          &BapidService::AsyncService::RequestShutdown> {
