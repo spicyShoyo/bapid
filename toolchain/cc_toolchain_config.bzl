@@ -71,6 +71,7 @@ def _impl(ctx):
                                 "/usr/local/lib/libgrpc++_reflection.1.49.0.dylib",
                                 "/usr/local/lib/libgrpc++_test_config.1.49.0.dylib",
                                 "/usr/local/lib/libgrpc++_unsecure.1.49.0.dylib",
+                                "/usr/local/lib/libgpr.27.0.0.dylib",
                                 "/usr/local/lib/libv8.dylib",
                                 "/usr/local/lib/libv8_libbase.dylib",
                                 "/usr/local/lib/libv8_libplatform.dylib",

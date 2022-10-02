@@ -2,9 +2,12 @@ syntax = "proto3";
 
 package bapid;
 
-service Greeter {
+service BapidService {
   rpc Ping (PingRequest) returns (PingReply) {}
+  rpc Shutdown (Empty) returns (Empty) {}
 }
+
+message Empty {}
 
 message PingRequest {
   string name = 1;

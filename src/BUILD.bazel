@@ -11,5 +11,6 @@ cc_library(
   name = "server",
   srcs = ["bapid_server.cpp"],
   hdrs = ["bapid_server.h"],
+  deps = ["//if:rpc_lib"]
 )
 

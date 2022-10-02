@@ -1,4 +1,4 @@
-#include "src/bapid.h"
+#include "src/bapid_server.h"
 #include <folly/File.h>
 #include <folly/init/Init.h>
 #include <folly/logging/xlog.h>
@@ -21,5 +21,8 @@ int main(int argc, char **argv) {
   }
 
   XLOG(INFO) << "init";
-  return bapid::BapidMain::run();
+
+  bapid::BapidServer server{"localhost:50051"};
+  server.serve();
+  return 0;
 }
