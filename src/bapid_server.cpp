@@ -1,7 +1,21 @@
 #include "src/bapid_server.h"
 #include "if/bapid.grpc.pb.h"
 #include <atomic>
+#include <folly/executors/GlobalExecutor.h>
+#include <folly/experimental/coro/Task.h>
 #include <folly/logging/xlog.h>
+#include <folly/tracing/AsyncStack.h>
+
+namespace folly {
+// wtf
+FOLLY_NOINLINE void
+resumeCoroutineWithNewAsyncStackRoot(coro::coroutine_handle<> h,
+                                     folly::AsyncStackFrame &frame) noexcept {
+  detail::ScopedAsyncStackRoot root;
+  root.activateFrame(frame);
+  h.resume();
+}
+} // namespace folly
 
 namespace bapid {
 
@@ -23,14 +37,6 @@ void BapidServer::serve() {
   new Ping2Handler::type(data);
   new ShutdownHandler::type(data);
 
-  SCOPE_EXIT {
-    XLOG(INFO) << "shutdown..."; // NOLINT
-    server_->Shutdown();
-    XLOG(INFO) << "shutdown server"; // NOLINT
-    cq_->Shutdown();
-    XLOG(INFO) << "shutdown finish"; // NOLINT
-  };
-
   void *tag{};
   bool ok{false};
   while (cq_->Next(&tag, &ok)) {
@@ -39,13 +45,28 @@ void BapidServer::serve() {
     }
 
     (*static_cast<ProceedFn *>(tag))();
-
-    if (shutdownRequested_.load(std::memory_order_relaxed)) {
-      break;
-    }
   }
 }
 
-void BapidServer::initiateShutdown() { shutdownRequested_.store(true); }
+BapidServer::~BapidServer() {
+  XLOG(INFO) << "drain queue...";
+  void *ignored_tag{};
+  bool ignored_ok{};
+  while (cq_->Next(&ignored_tag, &ignored_ok)) {
+  }
+  XLOG(INFO) << "shutdown complete";
+}
+
+folly::coro::Task<void> BapidServer::doShutdown() {
+  XLOG(INFO) << "shutdown...";
+  server_->Shutdown();
+  cq_->Shutdown();
+  co_return;
+}
+
+void BapidServer::initiateShutdown() {
+  shutdownRequested_.store(true);
+  doShutdown().scheduleOn(folly::getGlobalCPUExecutor().get()).start();
+}
 
 } // namespace bapid

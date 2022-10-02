@@ -61,6 +61,8 @@ def _impl(ctx):
                             flags = [
                                 "-lstdc++",
                                 "/usr/local/lib/libfolly.dylib",
+                                "/usr/local/lib/libfollybenchmark.dylib",
+                                "/usr/local/lib/libfolly_test_util.dylib",
                                 "/usr/local/lib/libfmt.dylib",
                                 "/usr/local/lib/libglog.dylib",
                                 "/usr/local/lib/libgflags.dylib",

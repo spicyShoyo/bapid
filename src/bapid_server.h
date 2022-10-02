@@ -1,6 +1,7 @@
 #pragma once
 
 #include "if/bapid.grpc.pb.h"
+#include <folly/experimental/coro/Task.h>
 #include <grpc/support/log.h>
 #include <grpcpp/completion_queue.h>
 #include <grpcpp/grpcpp.h>
@@ -98,7 +99,7 @@ class BapidServer final {
 public:
   explicit BapidServer(std::string addr);
 
-  ~BapidServer() = default;
+  ~BapidServer();
   BapidServer(BapidServer &&other) noexcept = delete;
   BapidServer &operator=(BapidServer &&other) noexcept = delete;
   BapidServer &operator=(const BapidServer &other) = delete;
@@ -108,11 +109,12 @@ public:
   void initiateShutdown();
 
 private:
+  folly::coro::Task<void> doShutdown();
+
   std::atomic<bool> shutdownRequested_{false};
   const std::string addr_;
   BapidService::AsyncService service_{};
   std::unique_ptr<grpc::ServerCompletionQueue> cq_;
   std::unique_ptr<grpc::Server> server_;
-  ;
 };
 } // namespace bapid
