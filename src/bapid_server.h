@@ -1,8 +1,12 @@
 #pragma once
 
 #include "if/bapid.grpc.pb.h"
+#include <folly/Unit.h>
+#include <folly/executors/GlobalExecutor.h>
 #include <folly/experimental/coro/Task.h>
+#include <folly/logging/xlog.h>
 #include <grpc/support/log.h>
+
 #include <grpcpp/completion_queue.h>
 #include <grpcpp/grpcpp.h>
 #include <memory>
@@ -30,6 +34,7 @@ struct unwrap<TOuter<TInner>> {
 class BapidServer;
 struct CallData {
   BapidServer *server;
+  folly::Executor *executor_;
   BapidService::AsyncService *service;
   grpc::ServerCompletionQueue *cq;
 };
@@ -52,10 +57,18 @@ public:
 
   void proceed() {
     if (!processed_) {
-      new HandlerBase<THandler, TRegisterFn>(data_);
-      static_cast<THandler *>(this)->process();
       processed_ = true;
-      responder_.Finish(reply_, grpc::Status::OK, &proceedFn_);
+      new HandlerBase<THandler, TRegisterFn>(data_);
+
+      static_cast<THandler *>(this)
+          ->process()
+          .scheduleOn(data_.executor_)
+          .start()
+          .defer([&](auto &&) {
+            responder_.Finish(reply_, grpc::Status::OK, &proceedFn_);
+          })
+          .via(data_.executor_);
+
     } else {
       delete static_cast<THandler *>(this);
     }
@@ -78,14 +91,14 @@ class PingHandler
     : public HandlerBase<PingHandler,
                          &BapidService::AsyncService::RequestPing> {
   friend HandlerBase;
-  void process();
+  folly::coro::Task<void> process();
 };
 
 class ShutdownHandler
     : public HandlerBase<ShutdownHandler,
                          &BapidService::AsyncService::RequestShutdown> {
   friend HandlerBase;
-  void process();
+  folly::coro::Task<void> process();
 };
 
 class BapidServer final {
@@ -100,8 +113,10 @@ public:
 
   void serve();
   void initiateShutdown();
+  folly::Executor *getEexecutor() { return executor_.get(); }
 
 private:
+  folly::Executor::KeepAlive<> executor_ = folly::getGlobalCPUExecutor();
   folly::coro::Task<void> doShutdown();
 
   std::atomic<bool> shutdownRequested_{false};
