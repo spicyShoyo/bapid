@@ -39,6 +39,10 @@ template <typename TServer, typename TService> struct ServiceCtxBase {
 };
 
 using ProceedFn = std::function<void()>;
+struct CallDataBase {
+  ProceedFn proceedFn;
+};
+
 template <typename TServer, typename TService, typename THandler,
           auto TRegisterFn>
 class HandlerBase {
@@ -51,17 +55,20 @@ public:
           decltype(TRegisterFn)>::template arg<2>::type>>::type;
   using type = HandlerBase<TService, TServer, THandler, TRegisterFn>;
 
-  struct CallData {
+  struct CallData : private CallDataBase {
     HandlerBase *handler;
     Request request{};
     Reply reply{};
     bool processed{false};
+
+    explicit CallData(HandlerBase *handler)
+        : CallDataBase{[=]() { handler->proceed(this); }}, handler{handler} {}
   };
 
   explicit HandlerBase(ServiceCtx ctx)
       : ctx_{ctx}, responder_(&grpcCtx_), registerFn_{[this]() {
           auto data = new CallData(this); // NOLINT
-          (ctx_.service->*TRegisterFn)(&grpcCtx_, *(data->req), &responder_,
+          (ctx_.service->*TRegisterFn)(&grpcCtx_, &(data->request), &responder_,
                                        ctx_.cq, ctx_.cq, data);
         }} {
     registerFn_();
@@ -73,13 +80,13 @@ public:
       registerFn_();
 
       static_cast<THandler *>(this)
-          ->process()
-          .scheduleOn(ctx_.executor_)
+          ->process(data)
+          .scheduleOn(ctx_.executor)
           .start()
           .defer([&](auto &&) {
-            responder_.Finish(&(data->reply), grpc::Status::OK, &data);
+            responder_.Finish(data->reply, grpc::Status::OK, data);
           })
-          .via(ctx_.executor_);
+          .via(ctx_.executor);
 
     } else {
       delete data; // NOLINT

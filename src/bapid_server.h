@@ -1,6 +1,7 @@
 #pragma once
 
 #include "if/bapid.grpc.pb.h"
+#include "src/common/server_base.h"
 #include <folly/Unit.h>
 #include <folly/executors/GlobalExecutor.h>
 #include <folly/experimental/coro/Task.h>
@@ -14,91 +15,28 @@
 #include <type_traits>
 
 namespace bapid {
-namespace {
-template <typename TFn> struct function_traits;
-
-template <typename TRes, typename TKlass, typename... TArgs>
-struct function_traits<TRes (TKlass::*)(TArgs...)> {
-  template <size_t i> struct arg {
-    using type = typename std::tuple_element<i, std::tuple<TArgs...>>::type;
-  };
-};
-
-template <typename TWrapper> struct unwrap;
-template <template <typename> class TOuter, typename TInner>
-struct unwrap<TOuter<TInner>> {
-  using type = TInner;
-};
-} // namespace
 
 class BapidServer;
-struct CallData {
-  BapidServer *server;
-  folly::Executor *executor_;
-  BapidService::AsyncService *service;
-  grpc::ServerCompletionQueue *cq;
-};
+template <typename THandler, auto TRegisterFn>
+using BapidHanlder =
+    HandlerBase<BapidServer, BapidService, THandler, TRegisterFn>;
 
-using ProceedFn = std::function<void()>;
-template <typename THandler, auto TRegisterFn> class HandlerBase {
-public:
-  using Request = std::remove_pointer_t<
-      typename function_traits<decltype(TRegisterFn)>::template arg<1>::type>;
-  using Reply = typename unwrap<std::remove_pointer_t<typename function_traits<
-      decltype(TRegisterFn)>::template arg<2>::type>>::type;
-  using type = HandlerBase<THandler, TRegisterFn>;
-
-  explicit HandlerBase(CallData data)
-      : proceedFn_{[this]() { static_cast<THandler *>(this)->proceed(); }},
-        data_{data}, responder_(&ctx_) {
-    (data_.service->*TRegisterFn)(&ctx_, &request_, &responder_, data_.cq,
-                                  data.cq, &proceedFn_);
-  }
-
-  void proceed() {
-    if (!processed_) {
-      processed_ = true;
-      new HandlerBase<THandler, TRegisterFn>(data_);
-
-      static_cast<THandler *>(this)
-          ->process()
-          .scheduleOn(data_.executor_)
-          .start()
-          .defer([&](auto &&) {
-            responder_.Finish(reply_, grpc::Status::OK, &proceedFn_);
-          })
-          .via(data_.executor_);
-
-    } else {
-      delete static_cast<THandler *>(this);
-    }
-  }
-
-private:
-  friend THandler;
-  ProceedFn proceedFn_;
-
-  CallData data_;
-  grpc::ServerContext ctx_;
-  grpc::ServerAsyncResponseWriter<Reply> responder_;
-  bool processed_{false};
-
-  Request request_;
-  Reply reply_;
-};
+using BapidServiceCtx = ServiceCtxBase<BapidServer, BapidService>;
 
 class PingHandler
-    : public HandlerBase<PingHandler,
-                         &BapidService::AsyncService::RequestPing> {
+    : public BapidHanlder<PingHandler,
+                          &BapidService::AsyncService::RequestPing> {
   friend HandlerBase;
-  folly::coro::Task<void> process();
+  using HandlerBase::HandlerBase;
+  folly::coro::Task<void> process(CallData *data);
 };
 
 class ShutdownHandler
-    : public HandlerBase<ShutdownHandler,
-                         &BapidService::AsyncService::RequestShutdown> {
+    : public BapidHanlder<ShutdownHandler,
+                          &BapidService::AsyncService::RequestShutdown> {
   friend HandlerBase;
-  folly::coro::Task<void> process();
+  using HandlerBase::HandlerBase;
+  folly::coro::Task<void> process(CallData *data);
 };
 
 class BapidServer final {
