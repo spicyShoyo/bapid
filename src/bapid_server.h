@@ -21,6 +21,7 @@ using BapidServiceCtx = ServiceCtxBase<BapidService>;
 struct BapiHanlderCtx {
   BapidServer *server;
 };
+using BapidServiceRuntime = ServiceRuntimeBase<BapidService>;
 template <typename THandler, auto TRegisterFn>
 using BapidHanlder = HandlerBase<BapidServer, BapidService, BapiHanlderCtx,
                                  THandler, TRegisterFn>;

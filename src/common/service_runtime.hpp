@@ -101,13 +101,14 @@ private:
   std::function<void()> registerFn_;
 };
 
-template <typename TService, typename THandlerCtx> class ServiceRuntimeBase {
+template <typename TService> class ServiceRuntimeBase {
 public:
-  void addHanlder();
+  using ServiceCtx = ServiceCtxBase<TService>;
+
   void serve() {
     void *tag{};
     bool ok{false};
-    while (ctx_->cq->Next(&tag, &ok)) {
+    while (ctx_.cq->Next(&tag, &ok)) {
       if (!ok) {
         break;
       }
@@ -115,9 +116,10 @@ public:
       (static_cast<CallDataBase *>(tag))->proceedFn();
     }
   }
+  explicit ServiceRuntimeBase(ServiceCtx ctx) : ctx_{ctx} {}
 
 private:
-  ServiceCtxBase<TService> ctx_;
+  ServiceCtx ctx_;
 };
 
 } // namespace bapid

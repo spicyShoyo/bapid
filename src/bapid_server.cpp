@@ -47,15 +47,8 @@ void BapidServer::serve() {
   PingHandler pingHandler{serviceCtx, hanlderCtx};
   ShutdownHandler shutdownHandler{serviceCtx, hanlderCtx};
 
-  void *tag{};
-  bool ok{false};
-  while (cq_->Next(&tag, &ok)) {
-    if (!ok) {
-      break;
-    }
-
-    (static_cast<CallDataBase *>(tag))->proceedFn();
-  }
+  BapidServiceRuntime runtime{serviceCtx};
+  runtime.serve();
 }
 
 BapidServer::~BapidServer() {
