@@ -3,7 +3,8 @@ package(default_visibility = ["//visibility:public"])
 
 cc_library(
   name = "service_runtime",
-  hdrs = ["service_runtime.hpp"],
+  srcs = ["service_runtime.cpp"],
+  hdrs = ["service_runtime.h"],
   deps = ["//if:rpc_lib"]
 )
 

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "if/bapid.grpc.pb.h"
-#include "src/common/service_runtime.hpp"
+#include "src/common/service_runtime.h"
 #include <folly/Unit.h>
 #include <folly/executors/GlobalExecutor.h>
 #include <folly/experimental/coro/Task.h>
@@ -31,7 +31,7 @@ class PingHandler
                           &BapidService::AsyncService::RequestPing> {
   friend HandlerBase;
   using HandlerBase::HandlerBase;
-  folly::coro::Task<void> process(CallData *data, BapiHanlderCtx &ctx);
+  static folly::coro::Task<void> process(CallData *data, BapiHanlderCtx &ctx);
 };
 
 class ShutdownHandler
@@ -39,7 +39,7 @@ class ShutdownHandler
                           &BapidService::AsyncService::RequestShutdown> {
   friend HandlerBase;
   using HandlerBase::HandlerBase;
-  folly::coro::Task<void> process(CallData *data, BapiHanlderCtx &ctx);
+  static folly::coro::Task<void> process(CallData *data, BapiHanlderCtx &ctx);
 };
 
 class BapidServer final {
