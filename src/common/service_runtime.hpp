@@ -31,8 +31,7 @@ struct unwrap<TOuter<TInner>> {
 };
 } // namespace detail
 
-template <typename TServer, typename TService> struct ServiceCtxBase {
-  TServer *server;
+template <typename TService> struct ServiceCtxBase {
   typename TService::AsyncService *service;
   grpc::ServerCompletionQueue *cq;
   folly::Executor *executor;
@@ -41,63 +40,84 @@ template <typename TServer, typename TService> struct ServiceCtxBase {
 using ProceedFn = std::function<void()>;
 struct CallDataBase {
   ProceedFn proceedFn;
+  grpc::ServerContext grpcCtx{};
 };
 
-template <typename TServer, typename TService, typename THandler,
-          auto TRegisterFn>
+template <typename TServer, typename TService, typename THanlderCtx,
+          typename THandler, auto TRegisterFn>
 class HandlerBase {
 public:
-  using ServiceCtx = ServiceCtxBase<TServer, TService>;
+  using ServiceCtx = ServiceCtxBase<TService>;
   using Request = std::remove_pointer_t<typename detail::function_traits<
       decltype(TRegisterFn)>::template arg<1>::type>;
   using Reply = typename detail::unwrap<
       std::remove_pointer_t<typename detail::function_traits<
           decltype(TRegisterFn)>::template arg<2>::type>>::type;
-  using type = HandlerBase<TService, TServer, THandler, TRegisterFn>;
 
-  struct CallData : private CallDataBase {
+  struct CallData : public CallDataBase {
+    grpc::ServerAsyncResponseWriter<Reply> responder;
     HandlerBase *handler;
     Request request{};
     Reply reply{};
     bool processed{false};
 
     explicit CallData(HandlerBase *handler)
-        : CallDataBase{[=]() { handler->proceed(this); }}, handler{handler} {}
+        : CallDataBase{[=]() { handler->proceed(this); }}, responder{&grpcCtx},
+          handler{handler} {}
   };
 
-  explicit HandlerBase(ServiceCtx ctx)
-      : ctx_{ctx}, responder_(&grpcCtx_), registerFn_{[this]() {
+  HandlerBase(ServiceCtx serviceCtx, THanlderCtx hanlderCtx)
+      : serviceCtx_{serviceCtx}, hanlderCtx_{hanlderCtx}, registerFn_{[this]() {
           auto data = new CallData(this); // NOLINT
-          (ctx_.service->*TRegisterFn)(&grpcCtx_, &(data->request), &responder_,
-                                       ctx_.cq, ctx_.cq, data);
+          (serviceCtx_.service->*TRegisterFn)(
+              &(data->grpcCtx), &(data->request), &(data->responder),
+              serviceCtx_.cq, serviceCtx_.cq, data);
         }} {
     registerFn_();
   }
 
+private:
   void proceed(CallData *data) {
     if (!data->processed) {
       data->processed = true;
       registerFn_();
 
       static_cast<THandler *>(this)
-          ->process(data)
-          .scheduleOn(ctx_.executor)
+          ->process(data, hanlderCtx_)
+          .scheduleOn(serviceCtx_.executor)
           .start()
           .defer([&](auto &&) {
-            responder_.Finish(data->reply, grpc::Status::OK, data);
+            data->responder.Finish(data->reply, grpc::Status::OK, data);
           })
-          .via(ctx_.executor);
+          .via(serviceCtx_.executor);
 
     } else {
       delete data; // NOLINT
     }
   }
 
-private:
-  friend THandler;
-  grpc::ServerContext grpcCtx_;
-  grpc::ServerAsyncResponseWriter<Reply> responder_;
-  ServiceCtx ctx_;
+  ServiceCtx serviceCtx_;
+  THanlderCtx hanlderCtx_;
   std::function<void()> registerFn_;
 };
+
+template <typename TService, typename THandlerCtx> class ServiceRuntimeBase {
+public:
+  void addHanlder();
+  void serve() {
+    void *tag{};
+    bool ok{false};
+    while (ctx_->cq->Next(&tag, &ok)) {
+      if (!ok) {
+        break;
+      }
+
+      (static_cast<CallDataBase *>(tag))->proceedFn();
+    }
+  }
+
+private:
+  ServiceCtxBase<TService> ctx_;
+};
+
 } // namespace bapid

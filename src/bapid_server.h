@@ -1,7 +1,7 @@
 #pragma once
 
 #include "if/bapid.grpc.pb.h"
-#include "src/common/server_base.h"
+#include "src/common/service_runtime.hpp"
 #include <folly/Unit.h>
 #include <folly/executors/GlobalExecutor.h>
 #include <folly/experimental/coro/Task.h>
@@ -17,18 +17,20 @@
 namespace bapid {
 
 class BapidServer;
+using BapidServiceCtx = ServiceCtxBase<BapidService>;
+struct BapiHanlderCtx {
+  BapidServer *server;
+};
 template <typename THandler, auto TRegisterFn>
-using BapidHanlder =
-    HandlerBase<BapidServer, BapidService, THandler, TRegisterFn>;
-
-using BapidServiceCtx = ServiceCtxBase<BapidServer, BapidService>;
+using BapidHanlder = HandlerBase<BapidServer, BapidService, BapiHanlderCtx,
+                                 THandler, TRegisterFn>;
 
 class PingHandler
     : public BapidHanlder<PingHandler,
                           &BapidService::AsyncService::RequestPing> {
   friend HandlerBase;
   using HandlerBase::HandlerBase;
-  folly::coro::Task<void> process(CallData *data);
+  folly::coro::Task<void> process(CallData *data, BapiHanlderCtx &ctx);
 };
 
 class ShutdownHandler
@@ -36,7 +38,7 @@ class ShutdownHandler
                           &BapidService::AsyncService::RequestShutdown> {
   friend HandlerBase;
   using HandlerBase::HandlerBase;
-  folly::coro::Task<void> process(CallData *data);
+  folly::coro::Task<void> process(CallData *data, BapiHanlderCtx &ctx);
 };
 
 class BapidServer final {

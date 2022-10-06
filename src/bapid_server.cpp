@@ -27,25 +27,25 @@ BapidServer::BapidServer(std::string addr) : addr_{std::move(addr)} {
   server_ = builder.BuildAndStart();
 }
 
-folly::coro::Task<void> PingHandler::process(CallData *data) {
+folly::coro::Task<void> PingHandler::process(CallData *data,
+                                             BapiHanlderCtx &ctx) {
   data->reply.set_message("hi: " + data->request.name());
   co_return;
 }
 
-folly::coro::Task<void> ShutdownHandler::process(CallData *data) {
-  data->handler->ctx_.server->initiateShutdown();
+folly::coro::Task<void> ShutdownHandler::process(CallData *data,
+                                                 BapiHanlderCtx &ctx) {
+  ctx.server->initiateShutdown();
   co_return;
 }
 
 void BapidServer::serve() {
-  BapidServiceCtx ctx{
+  BapidServiceCtx serviceCtx{&service_, cq_.get(), executor_.get()};
+  BapiHanlderCtx hanlderCtx{
       this,
-      &service_,
-      cq_.get(),
-      this->getEexecutor(),
   };
-  PingHandler pingHandler{ctx};
-  ShutdownHandler shutdownHandler{ctx};
+  PingHandler pingHandler{serviceCtx, hanlderCtx};
+  ShutdownHandler shutdownHandler{serviceCtx, hanlderCtx};
 
   void *tag{};
   bool ok{false};
