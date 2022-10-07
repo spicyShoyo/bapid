@@ -17,7 +17,7 @@
 namespace bapid {
 
 class BapidServer;
-using BapidServiceCtx = ServiceCtxBase<BapidService>;
+using BapidRuntimeCtx = RuntimeCtxBase<BapidService>;
 struct BapiHanlderCtx {
   BapidServer *server;
 };

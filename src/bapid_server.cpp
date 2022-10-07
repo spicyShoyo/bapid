@@ -28,14 +28,17 @@ ShutdownHandler::process(CallData *data, BapiHanlderCtx &ctx) {
 }
 
 void BapidServer::serve() {
-  BapidServiceCtx serviceCtx{&service_, cq_.get(), executor_.get()};
+  BapidRuntimeCtx runtimeCtx{&service_, cq_.get(), executor_.get()};
   BapiHanlderCtx hanlderCtx{
       this,
   };
-  PingHandler pingHandler{serviceCtx, hanlderCtx};
-  ShutdownHandler shutdownHandler{serviceCtx, hanlderCtx};
+  PingHandler pingHandler{hanlderCtx};
+  ShutdownHandler shutdownHandler{hanlderCtx};
 
-  BapidServiceRuntime runtime{serviceCtx};
+  BapidServiceRuntime runtime{runtimeCtx};
+
+  auto pingHandlerState = pingHandler.addToRuntime(runtimeCtx);
+  auto ShutdownHandlerState = shutdownHandler.addToRuntime(runtimeCtx);
   runtime.serve();
 }
 

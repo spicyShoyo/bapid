@@ -31,23 +31,34 @@ struct unwrap<TOuter<TInner>> {
 };
 } // namespace detail
 
-template <typename TService> struct ServiceCtxBase {
+template <typename TService> struct RuntimeCtxBase {
   typename TService::AsyncService *service;
   grpc::ServerCompletionQueue *cq;
   folly::Executor *executor;
 };
 
+struct CallDataBase;
 using ProceedFn = std::function<void()>;
 struct CallDataBase {
   ProceedFn proceedFn;
   grpc::ServerContext grpcCtx{};
 };
 
+using RegisterFn = std::function<void()>;
+struct HandlerState {
+  grpc::ServerCompletionQueue *cq;
+  folly::Executor *executor;
+  std::function<void(CallDataBase *)> proceedFn;
+  RegisterFn registerFn;
+
+  HandlerState(grpc::ServerCompletionQueue *cq, folly::Executor *executor)
+      : cq{cq}, executor{executor} {}
+};
+
 template <typename TServer, typename TService, typename THanlderCtx,
           typename THandler, auto TRegisterFn>
 class HandlerBase {
 public:
-  using ServiceCtx = ServiceCtxBase<TService>;
   using Request = std::remove_pointer_t<typename detail::function_traits<
       decltype(TRegisterFn)>::template arg<1>::type>;
   using Reply = typename detail::unwrap<
@@ -56,54 +67,63 @@ public:
 
   struct CallData : public CallDataBase {
     grpc::ServerAsyncResponseWriter<Reply> responder;
-    HandlerBase *handler;
+    HandlerState *state;
     Request request{};
     Reply reply{};
     bool processed{false};
 
-    explicit CallData(HandlerBase *handler)
-        : CallDataBase{[=]() { handler->proceed(this); }}, responder{&grpcCtx},
-          handler{handler} {}
+    explicit CallData(HandlerState *state)
+        : CallDataBase{[=]() { state->proceedFn(this); }}, responder{&grpcCtx},
+          state{state} {}
   };
 
-  HandlerBase(ServiceCtx serviceCtx, THanlderCtx hanlderCtx)
-      : serviceCtx_{serviceCtx}, hanlderCtx_{hanlderCtx}, registerFn_{[this]() {
-          auto data = new CallData(this); // NOLINT
-          (serviceCtx_.service->*TRegisterFn)(
-              &(data->grpcCtx), &(data->request), &(data->responder),
-              serviceCtx_.cq, serviceCtx_.cq, data);
-        }} {
-    registerFn_();
+  explicit HandlerBase(THanlderCtx hanlderCtx) : hanlderCtx_{hanlderCtx} {}
+
+  std::unique_ptr<HandlerState>
+  addToRuntime(RuntimeCtxBase<TService> &runtimeCtx) {
+    auto state =
+        std::make_unique<HandlerState>(runtimeCtx.cq, runtimeCtx.executor);
+    state->proceedFn = [this, statePtr = state.get()](CallDataBase *data) {
+      proceed(static_cast<CallData *>(data), statePtr);
+    };
+    state->registerFn = [this, statePtr = state.get(),
+                         service = runtimeCtx.service]() {
+      auto data = new CallData(statePtr); // NOLINT
+      (service->*TRegisterFn)(&(data->grpcCtx), &(data->request),
+                              &(data->responder), statePtr->cq, statePtr->cq,
+                              data);
+    };
+
+    state->registerFn();
+    return state;
   }
 
 private:
-  void proceed(CallData *data) {
+  void proceed(CallData *data, HandlerState *state) {
     if (!data->processed) {
       data->processed = true;
-      registerFn_();
+      state->registerFn();
 
       static_cast<THandler *>(this)
           ->process(data, hanlderCtx_)
-          .scheduleOn(serviceCtx_.executor)
+          .scheduleOn(state->executor)
           .start()
           .defer([&](auto &&) {
             data->responder.Finish(data->reply, grpc::Status::OK, data);
           })
-          .via(serviceCtx_.executor);
+          .via(state->executor);
 
     } else {
       delete data; // NOLINT
     }
   }
 
-  ServiceCtx serviceCtx_;
   THanlderCtx hanlderCtx_;
-  std::function<void()> registerFn_;
 };
 
 template <typename TService> class ServiceRuntimeBase {
 public:
-  using ServiceCtx = ServiceCtxBase<TService>;
+  using RuntimeCtx = RuntimeCtxBase<TService>;
 
   void serve() {
     void *tag{};
@@ -116,10 +136,10 @@ public:
       (static_cast<CallDataBase *>(tag))->proceedFn();
     }
   }
-  explicit ServiceRuntimeBase(ServiceCtx ctx) : ctx_{ctx} {}
+  explicit ServiceRuntimeBase(RuntimeCtx ctx) : ctx_{ctx} {}
 
 private:
-  ServiceCtx ctx_;
+  RuntimeCtx ctx_;
 };
 
 } // namespace bapid
