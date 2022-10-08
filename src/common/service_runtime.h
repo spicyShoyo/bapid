@@ -1,17 +1,18 @@
 #pragma once
 
+#include <algorithm>
 #include <folly/Unit.h>
 #include <folly/executors/GlobalExecutor.h>
 #include <folly/experimental/coro/Task.h>
 #include <folly/logging/xlog.h>
 #include <functional>
 #include <grpc/support/log.h>
-
 #include <grpcpp/completion_queue.h>
 #include <grpcpp/grpcpp.h>
 #include <memory>
 #include <tuple>
 #include <type_traits>
+#include <vector>
 
 namespace bapid {
 namespace detail {
@@ -55,9 +56,15 @@ struct HandlerState {
       : cq{cq}, executor{executor} {}
 };
 
+template <typename TService> class IHanlder {
+public:
+  virtual std::unique_ptr<HandlerState>
+  addToRuntime(RuntimeCtxBase<TService> &runtimeCtx) = 0;
+};
+
 template <typename TServer, typename TService, typename THanlderCtx,
           typename THandler, auto TRegisterFn>
-class HandlerBase {
+class HandlerBase : public IHanlder<TService> {
 public:
   using Request = std::remove_pointer_t<typename detail::function_traits<
       decltype(TRegisterFn)>::template arg<1>::type>;
@@ -80,7 +87,7 @@ public:
   explicit HandlerBase(THanlderCtx hanlderCtx) : hanlderCtx_{hanlderCtx} {}
 
   std::unique_ptr<HandlerState>
-  addToRuntime(RuntimeCtxBase<TService> &runtimeCtx) {
+  addToRuntime(RuntimeCtxBase<TService> &runtimeCtx) override {
     auto state =
         std::make_unique<HandlerState>(runtimeCtx.cq, runtimeCtx.executor);
     state->proceedFn = [this, statePtr = state.get()](CallDataBase *data) {
@@ -136,10 +143,17 @@ public:
       (static_cast<CallDataBase *>(tag))->proceedFn();
     }
   }
-  explicit ServiceRuntimeBase(RuntimeCtx ctx) : ctx_{ctx} {}
+  ServiceRuntimeBase(RuntimeCtx ctx,
+                     std::initializer_list<IHanlder<TService> *> handlers)
+      : ctx_{ctx} {
+    std::for_each(handlers.begin(), handlers.end(), [this](auto *hanlder) {
+      handlerStates_.emplace_back(hanlder->addToRuntime(ctx_));
+    });
+  }
 
 private:
   RuntimeCtx ctx_;
+  std::vector<std::unique_ptr<HandlerState>> handlerStates_{};
 };
 
 } // namespace bapid

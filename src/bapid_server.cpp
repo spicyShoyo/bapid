@@ -35,10 +35,7 @@ void BapidServer::serve() {
   PingHandler pingHandler{hanlderCtx};
   ShutdownHandler shutdownHandler{hanlderCtx};
 
-  BapidServiceRuntime runtime{runtimeCtx};
-
-  auto pingHandlerState = pingHandler.addToRuntime(runtimeCtx);
-  auto ShutdownHandlerState = shutdownHandler.addToRuntime(runtimeCtx);
+  BapidServiceRuntime runtime{runtimeCtx, {&pingHandler, &shutdownHandler}};
   runtime.serve();
 }
 
