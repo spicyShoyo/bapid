@@ -111,8 +111,7 @@ private:
       data->processed = true;
       state->registerFn();
 
-      static_cast<THandler *>(this)
-          ->process(data, hanlderCtx_)
+      THandler::process(data, hanlderCtx_)
           .scheduleOn(state->executor)
           .start()
           .defer([data = data](auto &&) {
