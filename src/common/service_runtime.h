@@ -108,7 +108,7 @@ private:
           ->process(data, hanlderCtx_)
           .scheduleOn(state->executor)
           .start()
-          .defer([&](auto &&) {
+          .defer([data = data](auto &&) {
             data->responder.Finish(data->reply, grpc::Status::OK, data);
           })
           .via(state->executor);
