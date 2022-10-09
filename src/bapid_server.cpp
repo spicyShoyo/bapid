@@ -3,15 +3,24 @@
 #include <atomic>
 #include <folly/executors/GlobalExecutor.h>
 #include <folly/experimental/coro/Task.h>
+#include <folly/io/async/EventBaseManager.h>
 #include <folly/logging/xlog.h>
+#include <initializer_list>
+#include <memory>
 
 namespace bapid {
 
-BapidServer::BapidServer(std::string addr) : addr_{std::move(addr)} {
+BapidServer::BapidServer(std::string addr, int numThreads)
+    : addr_{std::move(addr)}, numThreads_{numThreads},
+      evb_{folly::EventBaseManager::get()->getEventBase()} {
+  XCHECK(numThreads > 0);
+
   grpc::ServerBuilder builder{};
   builder.AddListeningPort(addr_, grpc::InsecureServerCredentials());
   builder.RegisterService(&service_);
-  cq_ = builder.AddCompletionQueue();
+  for (int i = 0; i < numThreads; i++) {
+    cqs_.emplace_back(builder.AddCompletionQueue());
+  }
   server_ = builder.BuildAndStart();
 }
 
@@ -27,37 +36,63 @@ ShutdownHandler::process(CallData *data, BapiHanlderCtx &ctx) {
   co_return;
 }
 
-void BapidServer::serve() {
-  BapidRuntimeCtx runtimeCtx{&service_, cq_.get(), executor_.get()};
+folly::CancellationToken BapidServer::startRuntimes() {
   BapiHanlderCtx hanlderCtx{
       this,
   };
-  PingHandler pingHandler{hanlderCtx};
-  ShutdownHandler shutdownHandler{hanlderCtx};
+  hanlders_.emplace_back(std::make_unique<PingHandler>(hanlderCtx));
+  hanlders_.emplace_back(std::make_unique<ShutdownHandler>(hanlderCtx));
 
-  BapidServiceRuntime runtime{runtimeCtx, {&pingHandler, &shutdownHandler}};
-  runtime.serve();
+  folly::CancellationSource source;
+  auto token = source.getToken();
+  auto guard = folly::copy_to_shared_ptr(folly::makeGuard(
+      [source = std::move(source)]() { source.requestCancellation(); }));
+
+  for (int i = 0; i < numThreads_; i++) {
+    BapidRuntimeCtx runtimeCtx{&service_, cqs_[i].get(), executor_.get()};
+    runtimes_.emplace_back(
+        std::make_unique<BapidServiceRuntime>(runtimeCtx, hanlders_));
+    threads_.emplace_back(
+        [runtime = runtimes_.back().get(), guard = guard]() mutable {
+          runtime->serve();
+          guard.reset();
+        });
+  }
+
+  return token;
+}
+
+void BapidServer::serve() {
+  auto token = startRuntimes();
+
+  folly::CancellationCallback cb(token, [=] {
+    evb_->runInEventBaseThread([=] { evb_->terminateLoopSoon(); });
+  });
+  evb_->loopForever();
+
+  for (auto &thread : threads_) {
+    thread.join();
+  }
 }
 
 BapidServer::~BapidServer() {
-  XLOG(INFO) << "drain queue...";
-  void *ignored_tag{};
-  bool ignored_ok{};
-  while (cq_->Next(&ignored_tag, &ignored_ok)) {
-  }
+  XLOG(INFO) << "draining...";
+  threads_.clear();
+  runtimes_.clear();
   XLOG(INFO) << "shutdown complete";
 }
 
 folly::coro::Task<void> BapidServer::doShutdown() {
   XLOG(INFO) << "shutdown...";
   server_->Shutdown();
-  cq_->Shutdown();
+  for (auto &cq : cqs_) {
+    cq->Shutdown();
+  }
+
   co_return;
 }
-
 void BapidServer::initiateShutdown() {
-  shutdownRequested_.store(true);
-  doShutdown().scheduleOn(getEexecutor()).start();
+  doShutdown().scheduleOn(executor_).start();
 }
 
 } // namespace bapid

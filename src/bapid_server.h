@@ -2,9 +2,11 @@
 
 #include "if/bapid.grpc.pb.h"
 #include "src/common/service_runtime.h"
+#include <folly/CancellationToken.h>
 #include <folly/Unit.h>
 #include <folly/executors/GlobalExecutor.h>
 #include <folly/experimental/coro/Task.h>
+#include <folly/io/async/EventBase.h>
 #include <folly/logging/xlog.h>
 #include <grpc/support/log.h>
 
@@ -44,7 +46,7 @@ class ShutdownHandler
 
 class BapidServer final {
 public:
-  explicit BapidServer(std::string addr);
+  explicit BapidServer(std::string addr, int numThreads = 2);
 
   ~BapidServer();
   BapidServer(BapidServer &&other) noexcept = delete;
@@ -54,16 +56,21 @@ public:
 
   void serve();
   void initiateShutdown();
-  folly::Executor *getEexecutor() { return executor_.get(); }
 
 private:
-  folly::Executor::KeepAlive<> executor_ = folly::getGlobalCPUExecutor();
   folly::coro::Task<void> doShutdown();
+  folly::CancellationToken startRuntimes();
 
-  std::atomic<bool> shutdownRequested_{false};
+  int numThreads_;
+  folly::EventBase *evb_;
+  folly::Executor::KeepAlive<> executor_ = folly::getGlobalCPUExecutor();
   const std::string addr_;
   BapidService::AsyncService service_{};
-  std::unique_ptr<grpc::ServerCompletionQueue> cq_;
+  std::vector<std::unique_ptr<grpc::ServerCompletionQueue>> cqs_{};
   std::unique_ptr<grpc::Server> server_;
+
+  std::vector<std::unique_ptr<IHanlder<BapidService>>> hanlders_;
+  std::vector<std::unique_ptr<BapidServiceRuntime>> runtimes_;
+  std::vector<std::thread> threads_;
 };
 } // namespace bapid

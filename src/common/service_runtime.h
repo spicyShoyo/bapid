@@ -142,12 +142,20 @@ public:
       (static_cast<CallDataBase *>(tag))->proceedFn();
     }
   }
+
   ServiceRuntimeBase(RuntimeCtx ctx,
-                     std::initializer_list<IHanlder<TService> *> handlers)
+                     std::vector<std::unique_ptr<IHanlder<TService>>> &handlers)
       : ctx_{ctx} {
-    std::for_each(handlers.begin(), handlers.end(), [this](auto *hanlder) {
+    std::for_each(handlers.begin(), handlers.end(), [this](auto &hanlder) {
       handlerStates_.emplace_back(hanlder->addToRuntime(ctx_));
     });
+  }
+
+  ~ServiceRuntimeBase() {
+    void *ignored_tag{};
+    bool ignored_ok{};
+    while (ctx_.cq->Next(&ignored_tag, &ignored_ok)) {
+    }
   }
 
 private:
