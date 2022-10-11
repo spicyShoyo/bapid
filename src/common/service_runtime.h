@@ -58,8 +58,15 @@ struct HandlerState {
 
 template <typename TService> class IHanlder {
 public:
+  IHanlder() = default;
+  virtual ~IHanlder() = default;
   virtual std::unique_ptr<HandlerState>
   addToRuntime(RuntimeCtxBase<TService> &runtimeCtx) = 0;
+
+  IHanlder(const IHanlder &) = default;
+  IHanlder(IHanlder &&) noexcept = default;
+  IHanlder &operator=(const IHanlder &) = default;
+  IHanlder &operator=(IHanlder &&) noexcept = default;
 };
 
 template <typename TServer, typename TService, typename THanlderCtx,
@@ -157,6 +164,11 @@ public:
     while (ctx_.cq->Next(&ignored_tag, &ignored_ok)) {
     }
   }
+
+  ServiceRuntimeBase(const ServiceRuntimeBase &) = default;
+  ServiceRuntimeBase(ServiceRuntimeBase &&) noexcept = default;
+  ServiceRuntimeBase &operator=(const ServiceRuntimeBase &) = default;
+  ServiceRuntimeBase &operator=(ServiceRuntimeBase &&) noexcept = default;
 
 private:
   RuntimeCtx ctx_;

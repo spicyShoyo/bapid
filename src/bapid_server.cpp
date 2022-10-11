@@ -1,6 +1,7 @@
 #include "src/bapid_server.h"
 #include "if/bapid.grpc.pb.h"
 #include <atomic>
+#include <chrono>
 #include <folly/executors/GlobalExecutor.h>
 #include <folly/experimental/coro/Task.h>
 #include <folly/io/async/EventBaseManager.h>
@@ -9,6 +10,10 @@
 #include <memory>
 
 namespace bapid {
+namespace {
+constexpr std::chrono::milliseconds kShutdownWait =
+    std::chrono::milliseconds(200);
+};
 
 BapidServer::BapidServer(std::string addr, int numThreads)
     : addr_{std::move(addr)}, numThreads_{numThreads},
@@ -22,6 +27,16 @@ BapidServer::BapidServer(std::string addr, int numThreads)
     cqs_.emplace_back(builder.AddCompletionQueue());
   }
   server_ = builder.BuildAndStart();
+
+  initHandlers();
+}
+
+void BapidServer::initHandlers() {
+  BapiHanlderCtx hanlderCtx{
+      this,
+  };
+  hanlders_.emplace_back(std::make_unique<PingHandler>(hanlderCtx));
+  hanlders_.emplace_back(std::make_unique<ShutdownHandler>(hanlderCtx));
 }
 
 /*static*/ folly::coro::Task<void> PingHandler::process(CallData *data,
@@ -37,12 +52,6 @@ ShutdownHandler::process(CallData *data, BapiHanlderCtx &ctx) {
 }
 
 folly::CancellationToken BapidServer::startRuntimes() {
-  BapiHanlderCtx hanlderCtx{
-      this,
-  };
-  hanlders_.emplace_back(std::make_unique<PingHandler>(hanlderCtx));
-  hanlders_.emplace_back(std::make_unique<ShutdownHandler>(hanlderCtx));
-
   folly::CancellationSource source;
   auto token = source.getToken();
   auto guard = folly::copy_to_shared_ptr(folly::makeGuard(
@@ -73,26 +82,22 @@ void BapidServer::serve() {
   for (auto &thread : threads_) {
     thread.join();
   }
+  threads_.clear();
 }
 
 BapidServer::~BapidServer() {
   XLOG(INFO) << "draining...";
-  threads_.clear();
   runtimes_.clear();
   XLOG(INFO) << "shutdown complete";
 }
 
-folly::coro::Task<void> BapidServer::doShutdown() {
-  XLOG(INFO) << "shutdown...";
-  server_->Shutdown();
-  for (auto &cq : cqs_) {
-    cq->Shutdown();
-  }
-
-  co_return;
-}
 void BapidServer::initiateShutdown() {
-  doShutdown().scheduleOn(executor_).start();
+  evb_->runInEventBaseThread([this] {
+    XLOG(INFO) << "shutdown..."; // NOLINT
+    server_->Shutdown(std::chrono::system_clock::now() + kShutdownWait);
+    for (auto &cq : cqs_) {
+      cq->Shutdown();
+    }
+  });
 }
-
 } // namespace bapid

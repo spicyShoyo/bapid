@@ -58,8 +58,8 @@ public:
   void initiateShutdown();
 
 private:
-  folly::coro::Task<void> doShutdown();
   folly::CancellationToken startRuntimes();
+  void initHandlers();
 
   int numThreads_;
   folly::EventBase *evb_;
