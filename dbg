@@ -1,2 +1,2 @@
-bazel build -c dbg $(cat script_target) && lldb ./bazel-bin/$(cat script_target)
+bazel build --strip=never --copt -g $(cat script_target) && lldb ./bazel-bin/$(cat script_target)
 
