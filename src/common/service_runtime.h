@@ -4,7 +4,6 @@
 #include <folly/Unit.h>
 #include <folly/executors/GlobalExecutor.h>
 #include <folly/experimental/coro/Task.h>
-#include <folly/io/async/EventBaseManager.h>
 #include <folly/logging/xlog.h>
 #include <functional>
 #include <grpc/support/log.h>
@@ -31,10 +30,6 @@ template <template <typename> class TOuter, typename TInner>
 struct unwrap<TOuter<TInner>> {
   using type = TInner;
 };
-
-constexpr gpr_timespec kNoDeadline{std::numeric_limits<std::int64_t>::max(), 0,
-                                   GPR_CLOCK_MONOTONIC};
-
 } // namespace detail
 
 template <typename TService> struct RuntimeCtxBase {
@@ -143,34 +138,16 @@ template <typename TService> class ServiceRuntimeBase {
 public:
   using RuntimeCtx = RuntimeCtxBase<TService>;
 
-  class LoopCb : public folly::EventBase::LoopCallback {
-  public:
-    LoopCb(RuntimeCtx &ctx, folly::EventBase *evb)
-        : folly::EventBase::LoopCallback(), cq_{ctx.cq}, evb_{evb} {
-      evb_->runInLoop(this);
-    }
-
-    void runLoopCallback() noexcept override {
-      void *tag{};
-      bool ok{false};
-      auto status = cq_->AsyncNext(&tag, &ok, detail::kNoDeadline);
-      if (status == grpc::CompletionQueue::NextStatus::GOT_EVENT && ok) {
-        (static_cast<CallDataBase *>(tag))->proceedFn();
-        evb_->runInLoop(this);
-      } else {
-        evb_->terminateLoopSoon();
-      }
-    }
-
-  private:
-    grpc::ServerCompletionQueue *cq_;
-    folly::EventBase *evb_;
-  };
-
   void serve() {
-    auto *evb = folly::EventBaseManager::get()->getEventBase();
-    LoopCb cb{ctx_, evb};
-    evb->loopForever();
+    void *tag{};
+    bool ok{false};
+    while (ctx_.cq->Next(&tag, &ok)) {
+      if (!ok) {
+        break;
+      }
+
+      (static_cast<CallDataBase *>(tag))->proceedFn();
+    }
   }
 
   ServiceRuntimeBase(RuntimeCtx ctx,
