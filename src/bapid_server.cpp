@@ -15,15 +15,15 @@ constexpr std::chrono::milliseconds kShutdownWait =
     std::chrono::milliseconds(200);
 };
 
-BapidServer::BapidServer(std::string addr, int numThreads)
-    : addr_{std::move(addr)}, numThreads_{numThreads},
+BapidServer::BapidServer(std::string addr, int num_threads)
+    : addr_{std::move(addr)}, num_threads_{num_threads},
       evb_{folly::EventBaseManager::get()->getEventBase()} {
-  XCHECK(numThreads > 0);
+  XCHECK(num_threads > 0);
 
   grpc::ServerBuilder builder{};
   builder.AddListeningPort(addr_, grpc::InsecureServerCredentials());
   builder.RegisterService(&service_);
-  for (int i = 0; i < numThreads; i++) {
+  for (int i = 0; i < num_threads; i++) {
     cqs_.emplace_back(builder.AddCompletionQueue());
   }
   server_ = builder.BuildAndStart();
@@ -32,11 +32,11 @@ BapidServer::BapidServer(std::string addr, int numThreads)
 }
 
 void BapidServer::initHandlers() {
-  BapiHanlderCtx hanlderCtx{
+  BapiHanlderCtx handler_ctx{
       this,
   };
-  hanlders_.emplace_back(std::make_unique<PingHandler>(hanlderCtx));
-  hanlders_.emplace_back(std::make_unique<ShutdownHandler>(hanlderCtx));
+  hanlders_.emplace_back(std::make_unique<PingHandler>(handler_ctx));
+  hanlders_.emplace_back(std::make_unique<ShutdownHandler>(handler_ctx));
 }
 
 /*static*/ folly::coro::Task<void> PingHandler::process(CallData *data,
@@ -57,10 +57,10 @@ folly::CancellationToken BapidServer::startRuntimes() {
   auto guard = folly::copy_to_shared_ptr(folly::makeGuard(
       [source = std::move(source)]() { source.requestCancellation(); }));
 
-  for (int i = 0; i < numThreads_; i++) {
-    BapidRuntimeCtx runtimeCtx{&service_, cqs_[i].get(), executor_.get()};
+  for (int i = 0; i < num_threads_; i++) {
+    BapidRuntimeCtx runtime_ctx{&service_, cqs_[i].get(), executor_.get()};
     runtimes_.emplace_back(
-        std::make_unique<BapidServiceRuntime>(runtimeCtx, hanlders_));
+        std::make_unique<BapidServiceRuntime>(runtime_ctx, hanlders_));
     threads_.emplace_back(
         [runtime = runtimes_.back().get(), guard = guard]() mutable {
           runtime->serve();

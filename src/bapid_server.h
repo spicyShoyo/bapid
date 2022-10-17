@@ -46,7 +46,7 @@ class ShutdownHandler
 
 class BapidServer final {
 public:
-  explicit BapidServer(std::string addr, int numThreads = 2);
+  explicit BapidServer(std::string addr, int num_threads = 2);
 
   ~BapidServer();
   BapidServer(BapidServer &&other) noexcept = delete;
@@ -61,7 +61,7 @@ private:
   folly::CancellationToken startRuntimes();
   void initHandlers();
 
-  int numThreads_;
+  int num_threads_;
   folly::EventBase *evb_;
   folly::Executor::KeepAlive<> executor_ = folly::getGlobalCPUExecutor();
   const std::string addr_;
