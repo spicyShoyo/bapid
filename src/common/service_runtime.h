@@ -53,6 +53,7 @@ template <typename TService> struct RuntimeCtxBase {
 struct CallDataBase {
   std::function<void()> proceedFn;
   grpc::ServerContext grpcCtx{};
+  bool processed{false};
 };
 
 struct HandlerState {
@@ -76,6 +77,79 @@ public:
   IHanlder(IHanlder &&) noexcept = default;
   IHanlder &operator=(const IHanlder &) = default;
   IHanlder &operator=(IHanlder &&) noexcept = default;
+};
+
+template <typename TService, typename THanlderCtx> class RpcHanlderRegistry {
+public:
+  template <typename Request, typename Reply>
+  using Hanlder = std::function<folly::coro::Task<void>(
+      Reply &reply, const Request &request, THanlderCtx &ctx)>;
+  using AddToRuntimeFn = std::function<std::unique_ptr<HandlerState>(
+      RuntimeCtxBase<TService> &runtimeCtx)>;
+
+  explicit RpcHanlderRegistry(THanlderCtx hanlder_ctx)
+      : hanlder_ctx_{hanlder_ctx} {}
+
+  template <
+      auto TGrpcRegisterFn,
+      typename Request = typename detail::unwrap_request<TGrpcRegisterFn>::type,
+      typename Reply = typename detail::unwrap_reply<TGrpcRegisterFn>::type>
+  void registerHandler(Hanlder<Request, Reply> &&process) {
+    struct CallData : public CallDataBase {
+      grpc::ServerAsyncResponseWriter<Reply> responder;
+      HandlerState *state;
+      Request request{};
+      Reply reply{};
+
+      explicit CallData(HandlerState *state)
+          : CallDataBase{[=]() { state->proceedFn(this); }},
+            responder{&grpcCtx}, state{state} {}
+    };
+
+    AddToRuntimeFn addToRuntime =
+        [&hanlder_ctx = hanlder_ctx_,
+         process = std::move(process)](RuntimeCtxBase<TService> &runtime_ctx)
+        -> std::unique_ptr<HandlerState> {
+      auto state =
+          std::make_unique<HandlerState>(runtime_ctx.cq, runtime_ctx.executor);
+
+      state->proceedFn = [&hanlder_ctx = hanlder_ctx, &process = process,
+                          state = state.get()](CallDataBase *baseData) {
+        auto data = static_cast<CallData *>(baseData);
+        if (!data->processed) {
+          data->processed = true;
+          state->registerFn();
+
+          process(data->reply, data->request, hanlder_ctx)
+              .scheduleOn(state->executor)
+              .start()
+              .defer([data = data](auto &&) {
+                data->responder.Finish(data->reply, grpc::Status::OK, data);
+              })
+              .via(state->executor);
+
+        } else {
+          delete data; // NOLINT
+        }
+      };
+      state->registerFn = [statePtr = state.get(),
+                           service = runtime_ctx.service]() {
+        auto data = new CallData(statePtr); // NOLINT
+        (service->*TGrpcRegisterFn)(&(data->grpcCtx), &(data->request),
+                                    &(data->responder), statePtr->cq,
+                                    statePtr->cq, data);
+      };
+
+      state->registerFn();
+      return state;
+    };
+
+    hanlders_.emplace_back(std::move(addToRuntime));
+  }
+
+private:
+  THanlderCtx hanlder_ctx_;
+  std::vector<AddToRuntimeFn> hanlders_{};
 };
 
 template <typename TService, typename THanlderCtx, typename THandler,

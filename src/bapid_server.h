@@ -31,6 +31,8 @@ template <typename THandler, auto TRegisterFn>
 using BapidHanlder =
     HandlerBase<BapidService, BapiHanlderCtx, THandler, TRegisterFn>;
 
+using BapidHanlderRegistry = RpcHanlderRegistry<BapidService, BapiHanlderCtx>;
+
 class PingHandler
     : public BapidHanlder<PingHandler,
                           &BapidService::AsyncService::RequestPing> {
