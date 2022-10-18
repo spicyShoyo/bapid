@@ -32,13 +32,13 @@ BapidServer::BapidServer(std::string addr, int numThreads)
 }
 
 void BapidServer::initHandlers() {
-  BapiHanlderCtx hanlderCtx{
+  BapiHanlderCtx hanlder_ctx{
       this,
   };
-  hanlders_.emplace_back(std::make_unique<PingHandler>(hanlderCtx));
-  hanlders_.emplace_back(std::make_unique<ShutdownHandler>(hanlderCtx));
+  hanlders_.emplace_back(std::make_unique<PingHandler>(hanlder_ctx));
+  hanlders_.emplace_back(std::make_unique<ShutdownHandler>(hanlder_ctx));
 
-  BapidHanlderRegistry registry{hanlderCtx};
+  hanlder_registry_ = std::make_unique<BapidHanlderRegistry>(hanlder_ctx);
 
   BapidHanlderRegistry::Hanlder<bapid::PingRequest, bapid::PingReply>
       pingHandler = [](bapid::PingReply &reply,
@@ -47,7 +47,7 @@ void BapidServer::initHandlers() {
     reply.set_message("hi: " + request.name());
     co_return;
   };
-  registry.registerHandler<&BapidService::AsyncService::RequestPing>(
+  hanlder_registry_->registerHandler<&BapidService::AsyncService::RequestPing>(
       std::move(pingHandler));
 
   BapidHanlderRegistry::Hanlder<bapid::Empty, bapid::Empty> shutdownHanlder =
@@ -56,8 +56,9 @@ void BapidServer::initHandlers() {
     ctx.server->initiateShutdown();
     co_return;
   };
-  registry.registerHandler<&BapidService::AsyncService::RequestShutdown>(
-      std::move(shutdownHanlder));
+  hanlder_registry_
+      ->registerHandler<&BapidService::AsyncService::RequestShutdown>(
+          std::move(shutdownHanlder));
 }
 
 /*static*/ folly::coro::Task<void> PingHandler::process(CallData *data,

@@ -74,6 +74,7 @@ private:
   std::vector<std::unique_ptr<grpc::ServerCompletionQueue>> cqs_{};
   std::unique_ptr<grpc::Server> server_;
 
+  std::unique_ptr<BapidHanlderRegistry> hanlder_registry_;
   std::vector<std::unique_ptr<IHanlder<BapidService>>> hanlders_;
   std::vector<std::unique_ptr<BapidServiceRuntime>> runtimes_;
   std::vector<std::thread> threads_;

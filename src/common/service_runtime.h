@@ -90,6 +90,16 @@ public:
   explicit RpcHanlderRegistry(THanlderCtx hanlder_ctx)
       : hanlder_ctx_{hanlder_ctx} {}
 
+  std::vector<std::unique_ptr<HandlerState>>
+  addHanldersToRuntime(RuntimeCtxBase<TService> &runtimeCtx) {
+    std::vector<std::unique_ptr<HandlerState>> states{};
+    std::for_each(handlers_.begin(), handlers_.end(), [&](auto &hanlder) {
+      states.emplace_back(hanlder->addToRuntime(runtimeCtx));
+    });
+
+    return states;
+  }
+
   template <
       auto TGrpcRegisterFn,
       typename Request = typename detail::unwrap_request<TGrpcRegisterFn>::type,
@@ -144,12 +154,12 @@ public:
       return state;
     };
 
-    hanlders_.emplace_back(std::move(addToRuntime));
+    handlers_.emplace_back(std::move(addToRuntime));
   }
 
 private:
   THanlderCtx hanlder_ctx_;
-  std::vector<AddToRuntimeFn> hanlders_{};
+  std::vector<AddToRuntimeFn> handlers_{};
 };
 
 template <typename TService, typename THanlderCtx, typename THandler,
