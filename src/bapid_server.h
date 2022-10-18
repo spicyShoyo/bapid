@@ -18,15 +18,18 @@
 
 namespace bapid {
 
-class BapidServer;
 using BapidRuntimeCtx = RuntimeCtxBase<BapidService>;
+
+class BapidServer;
 struct BapiHanlderCtx {
   BapidServer *server;
 };
+
 using BapidServiceRuntime = ServiceRuntimeBase<BapidService>;
+
 template <typename THandler, auto TRegisterFn>
-using BapidHanlder = HandlerBase<BapidServer, BapidService, BapiHanlderCtx,
-                                 THandler, TRegisterFn>;
+using BapidHanlder =
+    HandlerBase<BapidService, BapiHanlderCtx, THandler, TRegisterFn>;
 
 class PingHandler
     : public BapidHanlder<PingHandler,

@@ -16,10 +16,10 @@
 
 namespace bapid {
 namespace detail {
-template <typename TFn> struct function_traits;
+template <typename TFn> struct extract_args;
 
 template <typename TRes, typename TKlass, typename... TArgs>
-struct function_traits<TRes (TKlass::*)(TArgs...)> {
+struct extract_args<TRes (TKlass::*)(TArgs...)> {
   template <size_t i> struct arg {
     using type = typename std::tuple_element<i, std::tuple<TArgs...>>::type;
   };
@@ -30,6 +30,18 @@ template <template <typename> class TOuter, typename TInner>
 struct unwrap<TOuter<TInner>> {
   using type = TInner;
 };
+
+template <auto TGrpcRegisterFn> struct unwrap_request {
+  using type = std::remove_pointer_t<typename detail::extract_args<
+      decltype(TGrpcRegisterFn)>::template arg<1>::type>;
+};
+
+template <auto TGrpcRegisterFn> struct unwrap_reply {
+  using type = typename detail::unwrap<
+      std::remove_pointer_t<typename detail::extract_args<
+          decltype(TGrpcRegisterFn)>::template arg<2>::type>>::type;
+};
+
 } // namespace detail
 
 template <typename TService> struct RuntimeCtxBase {
@@ -38,19 +50,16 @@ template <typename TService> struct RuntimeCtxBase {
   folly::Executor *executor;
 };
 
-struct CallDataBase;
-using ProceedFn = std::function<void()>;
 struct CallDataBase {
-  ProceedFn proceedFn;
+  std::function<void()> proceedFn;
   grpc::ServerContext grpcCtx{};
 };
 
-using RegisterFn = std::function<void()>;
 struct HandlerState {
   grpc::ServerCompletionQueue *cq;
   folly::Executor *executor;
   std::function<void(CallDataBase *)> proceedFn;
-  RegisterFn registerFn;
+  std::function<void()> registerFn;
 
   HandlerState(grpc::ServerCompletionQueue *cq, folly::Executor *executor)
       : cq{cq}, executor{executor} {}
@@ -69,15 +78,12 @@ public:
   IHanlder &operator=(IHanlder &&) noexcept = default;
 };
 
-template <typename TServer, typename TService, typename THanlderCtx,
-          typename THandler, auto TRegisterFn>
+template <typename TService, typename THanlderCtx, typename THandler,
+          auto TRegisterFn>
 class HandlerBase : public IHanlder<TService> {
 public:
-  using Request = std::remove_pointer_t<typename detail::function_traits<
-      decltype(TRegisterFn)>::template arg<1>::type>;
-  using Reply = typename detail::unwrap<
-      std::remove_pointer_t<typename detail::function_traits<
-          decltype(TRegisterFn)>::template arg<2>::type>>::type;
+  using Request = typename detail::unwrap_request<TRegisterFn>::type;
+  using Reply = typename detail::unwrap_reply<TRegisterFn>::type;
 
   struct CallData : public CallDataBase {
     grpc::ServerAsyncResponseWriter<Reply> responder;

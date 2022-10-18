@@ -58,9 +58,8 @@ folly::CancellationToken BapidServer::startRuntimes() {
       [source = std::move(source)]() { source.requestCancellation(); }));
 
   for (int i = 0; i < numThreads_; i++) {
-    BapidRuntimeCtx runtimeCtx{&service_, cqs_[i].get(), executor_.get()};
-    runtimes_.emplace_back(
-        std::make_unique<BapidServiceRuntime>(runtimeCtx, hanlders_));
+    runtimes_.emplace_back(std::make_unique<BapidServiceRuntime>(
+        BapidRuntimeCtx{&service_, cqs_[i].get(), executor_.get()}, hanlders_));
     threads_.emplace_back(
         [runtime = runtimes_.back().get(), guard = guard]() mutable {
           runtime->serve();
