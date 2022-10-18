@@ -35,8 +35,6 @@ void BapidServer::initHandlers() {
   BapiHanlderCtx hanlder_ctx{
       this,
   };
-  hanlders_.emplace_back(std::make_unique<PingHandler>(hanlder_ctx));
-  hanlders_.emplace_back(std::make_unique<ShutdownHandler>(hanlder_ctx));
 
   hanlder_registry_ = std::make_unique<BapidHanlderRegistry>(hanlder_ctx);
 
@@ -61,27 +59,20 @@ void BapidServer::initHandlers() {
           std::move(shutdownHanlder));
 }
 
-/*static*/ folly::coro::Task<void> PingHandler::process(CallData *data,
-                                                        BapiHanlderCtx &ctx) {
-  data->reply.set_message("hi: " + data->request.name());
-  co_return;
-}
-
-/*static*/ folly::coro::Task<void>
-ShutdownHandler::process(CallData *data, BapiHanlderCtx &ctx) {
-  ctx.server->initiateShutdown();
-  co_return;
-}
-
 folly::CancellationToken BapidServer::startRuntimes() {
   folly::CancellationSource source;
   auto token = source.getToken();
   auto guard = folly::copy_to_shared_ptr(folly::makeGuard(
       [source = std::move(source)]() { source.requestCancellation(); }));
 
+  BapidServiceRuntime::AddHanldersFn addHandlers = [&](BapidRuntimeCtx &ctx) {
+    return hanlder_registry_->addHanldersToRuntime(ctx);
+  };
+
   for (int i = 0; i < numThreads_; i++) {
     runtimes_.emplace_back(std::make_unique<BapidServiceRuntime>(
-        BapidRuntimeCtx{&service_, cqs_[i].get(), executor_.get()}, hanlders_));
+        BapidRuntimeCtx{&service_, cqs_[i].get(), executor_.get()},
+        addHandlers));
     threads_.emplace_back(
         [runtime = runtimes_.back().get(), guard = guard]() mutable {
           runtime->serve();

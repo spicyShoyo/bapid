@@ -27,27 +27,7 @@ struct BapiHanlderCtx {
 
 using BapidServiceRuntime = ServiceRuntimeBase<BapidService>;
 
-template <typename THandler, auto TRegisterFn>
-using BapidHanlder =
-    HandlerBase<BapidService, BapiHanlderCtx, THandler, TRegisterFn>;
-
 using BapidHanlderRegistry = RpcHanlderRegistry<BapidService, BapiHanlderCtx>;
-
-class PingHandler
-    : public BapidHanlder<PingHandler,
-                          &BapidService::AsyncService::RequestPing> {
-  friend HandlerBase;
-  using HandlerBase::HandlerBase;
-  static folly::coro::Task<void> process(CallData *data, BapiHanlderCtx &ctx);
-};
-
-class ShutdownHandler
-    : public BapidHanlder<ShutdownHandler,
-                          &BapidService::AsyncService::RequestShutdown> {
-  friend HandlerBase;
-  using HandlerBase::HandlerBase;
-  static folly::coro::Task<void> process(CallData *data, BapiHanlderCtx &ctx);
-};
 
 class BapidServer final {
 public:
@@ -75,7 +55,6 @@ private:
   std::unique_ptr<grpc::Server> server_;
 
   std::unique_ptr<BapidHanlderRegistry> hanlder_registry_;
-  std::vector<std::unique_ptr<IHanlder<BapidService>>> hanlders_;
   std::vector<std::unique_ptr<BapidServiceRuntime>> runtimes_;
   std::vector<std::thread> threads_;
 };

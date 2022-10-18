@@ -66,19 +66,6 @@ struct HandlerState {
       : cq{cq}, executor{executor} {}
 };
 
-template <typename TService> class IHanlder {
-public:
-  IHanlder() = default;
-  virtual ~IHanlder() = default;
-  virtual std::unique_ptr<HandlerState>
-  addToRuntime(RuntimeCtxBase<TService> &runtimeCtx) = 0;
-
-  IHanlder(const IHanlder &) = default;
-  IHanlder(IHanlder &&) noexcept = default;
-  IHanlder &operator=(const IHanlder &) = default;
-  IHanlder &operator=(IHanlder &&) noexcept = default;
-};
-
 template <typename TService, typename THanlderCtx> class RpcHanlderRegistry {
 public:
   template <typename Request, typename Reply>
@@ -93,8 +80,8 @@ public:
   std::vector<std::unique_ptr<HandlerState>>
   addHanldersToRuntime(RuntimeCtxBase<TService> &runtimeCtx) {
     std::vector<std::unique_ptr<HandlerState>> states{};
-    std::for_each(handlers_.begin(), handlers_.end(), [&](auto &hanlder) {
-      states.emplace_back(hanlder->addToRuntime(runtimeCtx));
+    std::for_each(handlers_.begin(), handlers_.end(), [&](auto &addToRuntime) {
+      states.emplace_back(addToRuntime(runtimeCtx));
     });
 
     return states;
@@ -162,71 +149,11 @@ private:
   std::vector<AddToRuntimeFn> handlers_{};
 };
 
-template <typename TService, typename THanlderCtx, typename THandler,
-          auto TRegisterFn>
-class HandlerBase : public IHanlder<TService> {
-public:
-  using Request = typename detail::unwrap_request<TRegisterFn>::type;
-  using Reply = typename detail::unwrap_reply<TRegisterFn>::type;
-
-  struct CallData : public CallDataBase {
-    grpc::ServerAsyncResponseWriter<Reply> responder;
-    HandlerState *state;
-    Request request{};
-    Reply reply{};
-    bool processed{false};
-
-    explicit CallData(HandlerState *state)
-        : CallDataBase{[=]() { state->proceedFn(this); }}, responder{&grpcCtx},
-          state{state} {}
-  };
-
-  explicit HandlerBase(THanlderCtx hanlderCtx) : hanlderCtx_{hanlderCtx} {}
-
-  std::unique_ptr<HandlerState>
-  addToRuntime(RuntimeCtxBase<TService> &runtimeCtx) override {
-    auto state =
-        std::make_unique<HandlerState>(runtimeCtx.cq, runtimeCtx.executor);
-    state->proceedFn = [this, statePtr = state.get()](CallDataBase *data) {
-      proceed(static_cast<CallData *>(data), statePtr);
-    };
-    state->registerFn = [this, statePtr = state.get(),
-                         service = runtimeCtx.service]() {
-      auto data = new CallData(statePtr); // NOLINT
-      (service->*TRegisterFn)(&(data->grpcCtx), &(data->request),
-                              &(data->responder), statePtr->cq, statePtr->cq,
-                              data);
-    };
-
-    state->registerFn();
-    return state;
-  }
-
-private:
-  void proceed(CallData *data, HandlerState *state) {
-    if (!data->processed) {
-      data->processed = true;
-      state->registerFn();
-
-      THandler::process(data, hanlderCtx_)
-          .scheduleOn(state->executor)
-          .start()
-          .defer([data = data](auto &&) {
-            data->responder.Finish(data->reply, grpc::Status::OK, data);
-          })
-          .via(state->executor);
-
-    } else {
-      delete data; // NOLINT
-    }
-  }
-
-  THanlderCtx hanlderCtx_;
-};
-
 template <typename TService> class ServiceRuntimeBase {
 public:
   using RuntimeCtx = RuntimeCtxBase<TService>;
+  using AddHanldersFn =
+      std::function<std::vector<std::unique_ptr<HandlerState>>(RuntimeCtx &)>;
 
   void serve() {
     void *tag{};
@@ -240,13 +167,8 @@ public:
     }
   }
 
-  ServiceRuntimeBase(RuntimeCtx ctx,
-                     std::vector<std::unique_ptr<IHanlder<TService>>> &handlers)
-      : ctx_{ctx} {
-    std::for_each(handlers.begin(), handlers.end(), [this](auto &hanlder) {
-      handlerStates_.emplace_back(hanlder->addToRuntime(ctx_));
-    });
-  }
+  ServiceRuntimeBase(RuntimeCtx ctx, AddHanldersFn &addHandlers)
+      : ctx_{ctx}, handler_states_{addHandlers(ctx_)} {}
 
   ~ServiceRuntimeBase() {
     void *ignored_tag{};
@@ -262,7 +184,7 @@ public:
 
 private:
   RuntimeCtx ctx_;
-  std::vector<std::unique_ptr<HandlerState>> handlerStates_{};
+  std::vector<std::unique_ptr<HandlerState>> handler_states_{};
 };
 
 } // namespace bapid
