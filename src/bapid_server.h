@@ -27,7 +27,9 @@ struct BapiHanlderCtx {
 
 using BapidServiceRuntime = ServiceRuntimeBase<BapidService>;
 
-using BapidHanlderRegistry = RpcHanlderRegistry<BapidService, BapiHanlderCtx>;
+struct BapidHandlers;
+using BapidHanlderRegistry =
+    RpcHanlderRegistry<BapidService, BapiHanlderCtx, BapidHandlers>;
 
 class BapidServer final {
 public:

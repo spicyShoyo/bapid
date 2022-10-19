@@ -66,11 +66,13 @@ struct HandlerState {
       : cq{cq}, executor{executor} {}
 };
 
-template <typename TService, typename THanlderCtx> class RpcHanlderRegistry {
+template <typename TService, typename THanlderCtx, typename THanlders>
+class RpcHanlderRegistry {
 public:
   template <typename Request, typename Reply>
-  using Hanlder = std::function<folly::coro::Task<void>(
-      Reply &reply, const Request &request, THanlderCtx &ctx)>;
+  using Hanlder = folly::coro::Task<void> (THanlders::*)(Reply &reply,
+                                                         const Request &request,
+                                                         THanlderCtx &ctx);
   using BindHandlerFn = std::function<std::unique_ptr<HandlerState>(
       RuntimeCtxBase<TService> &runtime_ctx)>;
 
@@ -91,7 +93,7 @@ public:
   template <auto TGrpcRegisterFn,
             typename Request = typename unwrap_request<TGrpcRegisterFn>::type,
             typename Reply = typename unwrap_reply<TGrpcRegisterFn>::type>
-  void registerHandler(Hanlder<Request, Reply> &&process) {
+  void registerHandler(Hanlder<Request, Reply> process) {
     struct CallData : public CallDataBase {
       grpc::ServerAsyncResponseWriter<Reply> responder;
       Request request{};
@@ -102,20 +104,20 @@ public:
     };
 
     BindHandlerFn bind_hanlder =
-        [&hanlder_ctx = hanlder_ctx_,
-         process = std::move(process)](RuntimeCtxBase<TService> &runtime_ctx)
+        [this, process](RuntimeCtxBase<TService> &runtime_ctx)
         -> std::unique_ptr<HandlerState> {
       auto state =
           std::make_unique<HandlerState>(runtime_ctx.cq, runtime_ctx.executor);
 
-      state->proceed_fn = [&hanlder_ctx = hanlder_ctx, &process = process,
+      state->proceed_fn = [this, process,
                            state = state.get()](CallDataBase *baseData) {
         auto data = static_cast<CallData *>(baseData);
         if (!data->processed) {
           data->processed = true;
           state->register_fn();
 
-          process(data->reply, data->request, hanlder_ctx)
+          (this->hanlders_.*process)(data->reply, data->request,
+                                     this->hanlder_ctx_)
               .scheduleOn(state->executor)
               .start()
               .defer([data = data](auto &&) {
@@ -144,6 +146,7 @@ public:
 
 private:
   THanlderCtx hanlder_ctx_;
+  THanlders hanlders_{};
   std::vector<BindHandlerFn> hanlder_binders_{};
 };
 

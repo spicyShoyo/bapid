@@ -15,6 +15,22 @@ constexpr std::chrono::milliseconds kShutdownWait =
     std::chrono::milliseconds(200);
 };
 
+struct BapidHandlers {
+  folly::coro::Task<void> ping(bapid::PingReply &reply,
+                               const bapid::PingRequest &request,
+                               BapiHanlderCtx &ctx) {
+    reply.set_message("hi: " + request.name());
+    co_return;
+  }
+
+  folly::coro::Task<void> shutdown(bapid::Empty &reply,
+                                   const bapid::Empty &reuqest,
+                                   BapiHanlderCtx &ctx) {
+    ctx.server->initiateShutdown();
+    co_return;
+  };
+};
+
 BapidServer::BapidServer(std::string addr, int numThreads)
     : addr_{std::move(addr)}, numThreads_{numThreads},
       evb_{folly::EventBaseManager::get()->getEventBase()} {
@@ -38,25 +54,11 @@ void BapidServer::initHandlers() {
 
   hanlder_registry_ = std::make_unique<BapidHanlderRegistry>(hanlder_ctx);
 
-  BapidHanlderRegistry::Hanlder<bapid::PingRequest, bapid::PingReply>
-      pingHandler = [](bapid::PingReply &reply,
-                       const bapid::PingRequest &request,
-                       BapiHanlderCtx &ctx) -> folly::coro::Task<void> {
-    reply.set_message("hi: " + request.name());
-    co_return;
-  };
   hanlder_registry_->registerHandler<&BapidService::AsyncService::RequestPing>(
-      std::move(pingHandler));
-
-  BapidHanlderRegistry::Hanlder<bapid::Empty, bapid::Empty> shutdownHanlder =
-      [](bapid::Empty &reply, const bapid::Empty &reuqest,
-         BapiHanlderCtx &ctx) -> folly::coro::Task<void> {
-    ctx.server->initiateShutdown();
-    co_return;
-  };
+      &BapidHandlers::ping);
   hanlder_registry_
       ->registerHandler<&BapidService::AsyncService::RequestShutdown>(
-          std::move(shutdownHanlder));
+          &BapidHandlers::shutdown);
 }
 
 folly::CancellationToken BapidServer::startRuntimes() {
