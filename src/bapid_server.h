@@ -10,6 +10,7 @@
 #include <folly/logging/xlog.h>
 #include <grpc/support/log.h>
 
+#include <functional>
 #include <grpcpp/completion_queue.h>
 #include <grpcpp/grpcpp.h>
 #include <memory>
@@ -41,7 +42,7 @@ public:
   BapidServer &operator=(const BapidServer &other) = delete;
   BapidServer(const BapidServer &other) = delete;
 
-  void serve();
+  void serve(folly::SemiFuture<folly::Unit> &&on_serve);
   void initiateShutdown();
 
 private:

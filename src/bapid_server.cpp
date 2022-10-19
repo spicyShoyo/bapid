@@ -86,12 +86,13 @@ folly::CancellationToken BapidServer::startRuntimes() {
   return token;
 }
 
-void BapidServer::serve() {
+void BapidServer::serve(folly::SemiFuture<folly::Unit> &&on_serve) {
   auto token = startRuntimes();
 
   folly::CancellationCallback cb(token, [=] {
     evb_->runInEventBaseThread([=] { evb_->terminateLoopSoon(); });
   });
+  std::move(on_serve).via(evb_);
   evb_->loopForever();
 
   for (auto &thread : threads_) {
@@ -108,7 +109,7 @@ BapidServer::~BapidServer() {
 
 void BapidServer::initiateShutdown() {
   evb_->runInEventBaseThread([this] {
-    XLOG(INFO) << "shutdown..."; // NOLINT
+    XLOG(INFO) << "shutdown...";
     server_->Shutdown(std::chrono::system_clock::now() + kShutdownWait);
     for (auto &cq : cqs_) {
       cq->Shutdown();

@@ -34,11 +34,12 @@ int main(int argc, char **argv) {
   dup2(logHandle.fd(), kStdoutFileno);
   dup2(logHandle.fd(), kStderrFileno);
 
-  XLOG(INFO) << "init";
-  writeMessage(original_stderr, "init");
-  original_stderr.close();
-
   bapid::BapidServer server{"localhost:50051"};
-  server.serve();
+  server.serve(folly::makeSemiFutureWith(
+      [original_stderr = std::move(original_stderr)]() mutable {
+        XLOG(INFO) << "init";
+        writeMessage(original_stderr, "init");
+        original_stderr.close();
+      }));
   return 0;
 }

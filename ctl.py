@@ -53,4 +53,6 @@ if __name__ == "__main__":
         REGISTRY[cmd](sys.argv[2:])
     except KeyboardInterrupt:
         pass
+    except subprocess.CalledProcessError:
+        pass
 
