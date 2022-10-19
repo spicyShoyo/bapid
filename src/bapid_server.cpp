@@ -18,14 +18,14 @@ constexpr std::chrono::milliseconds kShutdownWait =
 struct BapidHandlers {
   folly::coro::Task<void> ping(bapid::PingReply &reply,
                                const bapid::PingRequest &request,
-                               BapiHanlderCtx &ctx) {
+                               BapidHandlerCtx &ctx) {
     reply.set_message("hi: " + request.name());
     co_return;
   }
 
   folly::coro::Task<void> shutdown(bapid::Empty &reply,
                                    const bapid::Empty &reuqest,
-                                   BapiHanlderCtx &ctx) {
+                                   BapidHandlerCtx &ctx) {
     ctx.server->initiateShutdown();
     co_return;
   };
@@ -48,7 +48,7 @@ BapidServer::BapidServer(std::string addr, int numThreads)
 }
 
 void BapidServer::initHandlers() {
-  BapiHanlderCtx hanlder_ctx{
+  BapidHandlerCtx hanlder_ctx{
       this,
   };
 

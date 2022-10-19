@@ -10,6 +10,7 @@ Checks: |
   readability-*,
   -modernize-use-trailing-return-type,
   -cppcoreguidelines-pro-bounds-array-to-pointer-decay,
+  -readability-convert-member-functions-to-static,
 WarningsAsErrors: ''
 CheckOptions:
   - key:             cppcoreguidelines-explicit-virtual-functions.IgnoreDestructors

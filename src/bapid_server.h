@@ -18,18 +18,18 @@
 
 namespace bapid {
 
-using BapidRuntimeCtx = RuntimeCtxBase<BapidService>;
+using BapidRuntimeCtx = RpcRuntimeCtx<BapidService>;
 
 class BapidServer;
-struct BapiHanlderCtx {
+struct BapidHandlerCtx {
   BapidServer *server;
 };
 
-using BapidServiceRuntime = ServiceRuntimeBase<BapidService>;
+using BapidServiceRuntime = RpcServiceRuntime<BapidService>;
 
 struct BapidHandlers;
 using BapidHanlderRegistry =
-    RpcHanlderRegistry<BapidService, BapiHanlderCtx, BapidHandlers>;
+    RpcHanlderRegistry<BapidService, BapidHandlerCtx, BapidHandlers>;
 
 class BapidServer final {
 public:

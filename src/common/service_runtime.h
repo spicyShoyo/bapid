@@ -41,14 +41,6 @@ template <auto TGrpcRegisterFn> struct unwrap_reply {
       decltype(TGrpcRegisterFn)>::template arg<2>::type>>::type;
 };
 
-} // namespace
-
-template <typename TService> struct RuntimeCtxBase {
-  typename TService::AsyncService *service;
-  grpc::ServerCompletionQueue *cq;
-  folly::Executor *executor;
-};
-
 struct HandlerState;
 struct CallDataBase {
   HandlerState *state;
@@ -65,6 +57,13 @@ struct HandlerState {
   HandlerState(grpc::ServerCompletionQueue *cq, folly::Executor *executor)
       : cq{cq}, executor{executor} {}
 };
+} // namespace
+
+template <typename TService> struct RpcRuntimeCtx {
+  typename TService::AsyncService *service;
+  grpc::ServerCompletionQueue *cq;
+  folly::Executor *executor;
+};
 
 template <typename TService, typename THanlderCtx, typename THanlders>
 class RpcHanlderRegistry {
@@ -74,17 +73,17 @@ public:
                                                          const Request &request,
                                                          THanlderCtx &ctx);
   using BindHandlerFn = std::function<std::unique_ptr<HandlerState>(
-      RuntimeCtxBase<TService> &runtime_ctx)>;
+      RpcRuntimeCtx<TService> &runtime_ctx)>;
 
   explicit RpcHanlderRegistry(THanlderCtx hanlder_ctx)
       : hanlder_ctx_{hanlder_ctx} {}
 
   std::vector<std::unique_ptr<HandlerState>>
-  bindRuntime(RuntimeCtxBase<TService> &runtime_ctx) {
+  bindRuntime(RpcRuntimeCtx<TService> &runtime_ctx) {
     std::vector<std::unique_ptr<HandlerState>> states{};
     std::for_each(hanlder_binders_.begin(), hanlder_binders_.end(),
-                  [&](auto &add_to_runtime) {
-                    states.emplace_back(add_to_runtime(runtime_ctx));
+                  [&](auto &bind_handler) {
+                    states.emplace_back(bind_handler(runtime_ctx));
                   });
 
     return states;
@@ -103,8 +102,8 @@ public:
           : CallDataBase{state}, responder{&grpc_ctx} {}
     };
 
-    BindHandlerFn bind_hanlder =
-        [this, process](RuntimeCtxBase<TService> &runtime_ctx)
+    BindHandlerFn bind_hanlder = [this,
+                                  process](RpcRuntimeCtx<TService> &runtime_ctx)
         -> std::unique_ptr<HandlerState> {
       auto state =
           std::make_unique<HandlerState>(runtime_ctx.cq, runtime_ctx.executor);
@@ -150,9 +149,9 @@ private:
   std::vector<BindHandlerFn> hanlder_binders_{};
 };
 
-template <typename TService> class ServiceRuntimeBase {
+template <typename TService> class RpcServiceRuntime {
 public:
-  using RuntimeCtx = RuntimeCtxBase<TService>;
+  using RuntimeCtx = RpcRuntimeCtx<TService>;
   using BindRegistryFn =
       std::function<std::vector<std::unique_ptr<HandlerState>>(RuntimeCtx &)>;
 
@@ -169,20 +168,20 @@ public:
     }
   }
 
-  ServiceRuntimeBase(RuntimeCtx ctx, BindRegistryFn &addHandlers)
-      : ctx_{ctx}, handler_states_{addHandlers(ctx_)} {}
+  RpcServiceRuntime(RuntimeCtx ctx, BindRegistryFn &bind_registry)
+      : ctx_{ctx}, handler_states_{bind_registry(ctx_)} {}
 
-  ~ServiceRuntimeBase() {
+  ~RpcServiceRuntime() {
     void *ignored_tag{};
     bool ignored_ok{};
     while (ctx_.cq->Next(&ignored_tag, &ignored_ok)) {
     }
   }
 
-  ServiceRuntimeBase(const ServiceRuntimeBase &) = delete;
-  ServiceRuntimeBase(ServiceRuntimeBase &&) noexcept = delete;
-  ServiceRuntimeBase &operator=(const ServiceRuntimeBase &) = delete;
-  ServiceRuntimeBase &operator=(ServiceRuntimeBase &&) noexcept = delete;
+  RpcServiceRuntime(const RpcServiceRuntime &) = delete;
+  RpcServiceRuntime(RpcServiceRuntime &&) noexcept = delete;
+  RpcServiceRuntime &operator=(const RpcServiceRuntime &) = delete;
+  RpcServiceRuntime &operator=(RpcServiceRuntime &&) noexcept = delete;
 
 private:
   RuntimeCtx ctx_;
