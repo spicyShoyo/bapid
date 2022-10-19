@@ -1,0 +1,13 @@
+#!/bin/bash
+
+IF_DIR=$(./dev_scripts/script_target -i)
+while getopts ':x' 'OPTKEY'; do
+  case ${OPTKEY} in
+    x)
+      mkdir -p ${IF_DIR} && bazel build //if:rpc && cp -f bazel-bin/if/rpc/if/* ${IF_DIR}/.
+      ;;
+  esac
+done
+
+bazel build  @hedron_compile_commands//:refresh_all && BUILD_WORKSPACE_DIRECTORY=$(pwd) python3 bazel-bin/external/hedron_compile_commands/refresh_all.py
+

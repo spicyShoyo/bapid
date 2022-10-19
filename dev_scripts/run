@@ -1,0 +1,4 @@
+#!/bin/bash
+
+SCRIPT_TARGET=$(./dev_scripts/script_target -t)
+bazel run -c dbg ${SCRIPT_TARGET} -- --log_dir=$(pwd)/logs --logbuflevel=-1

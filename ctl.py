@@ -1,5 +1,6 @@
 from collections.abc import Callable
 import sys
+import subprocess
 from subprocess import check_call
 
 GRPC_ADDR = "localhost:50051"
@@ -26,6 +27,20 @@ def ping(*_):
 def shutdown(*_):
     check_call(["grpc_cli", "call", GRPC_ADDR, "Shutdown", ""])
 
+# Local dev commands
+@register("run")
+def run(*_):
+    check_call(["./dev_scripts/run"])
+
+@register("dbg")
+def dbg(*_):
+    check_call(["./dev_scripts/dbg"])
+
+@register("refresh")
+def refresh(args):
+    check_call(["./dev_scripts/refresh"] + args)
+
+
 if __name__ == "__main__":
     if len(sys.argv) == 1:
         print('cmd: ', REGISTRY.keys())
@@ -33,5 +48,9 @@ if __name__ == "__main__":
     cmd = sys.argv[1]
     if cmd not in REGISTRY:
         quit()
+    
+    try:
+        REGISTRY[cmd](sys.argv[2:])
+    except KeyboardInterrupt:
+        pass
 
-    REGISTRY[cmd](sys.argv[2:])

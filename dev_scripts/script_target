@@ -1,0 +1,15 @@
+#!/bin/bash
+
+SCRIPT_TARGET=bapid
+IF_DIR=src/if
+
+while getopts ':ti' 'OPTKEY'; do
+  case ${OPTKEY} in
+    t)
+      echo ${SCRIPT_TARGET}
+      ;;
+    i)
+      echo ${IF_DIR}
+      ;;
+  esac
+done

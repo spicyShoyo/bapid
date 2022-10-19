@@ -1,0 +1,5 @@
+#!/bin/bash
+
+SCRIPT_TARGET=$(./dev_scripts/script_target -t)
+bazel build --strip=never --copt -g ${SCRIPT_TARGET} && lldb ./bazel-bin/${SCRIPT_TARGET}
+
