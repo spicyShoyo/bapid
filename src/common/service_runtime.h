@@ -15,7 +15,7 @@
 #include <vector>
 
 namespace bapid {
-namespace detail {
+namespace {
 template <typename TFn> struct extract_args;
 
 template <typename TRes, typename TKlass, typename... TArgs>
@@ -32,17 +32,16 @@ struct unwrap<TOuter<TInner>> {
 };
 
 template <auto TGrpcRegisterFn> struct unwrap_request {
-  using type = std::remove_pointer_t<typename detail::extract_args<
-      decltype(TGrpcRegisterFn)>::template arg<1>::type>;
+  using type = std::remove_pointer_t<
+      typename extract_args<decltype(TGrpcRegisterFn)>::template arg<1>::type>;
 };
 
 template <auto TGrpcRegisterFn> struct unwrap_reply {
-  using type = typename detail::unwrap<
-      std::remove_pointer_t<typename detail::extract_args<
-          decltype(TGrpcRegisterFn)>::template arg<2>::type>>::type;
+  using type = typename unwrap<std::remove_pointer_t<typename extract_args<
+      decltype(TGrpcRegisterFn)>::template arg<2>::type>>::type;
 };
 
-} // namespace detail
+} // namespace
 
 template <typename TService> struct RuntimeCtxBase {
   typename TService::AsyncService *service;
@@ -50,17 +49,18 @@ template <typename TService> struct RuntimeCtxBase {
   folly::Executor *executor;
 };
 
+struct HandlerState;
 struct CallDataBase {
-  std::function<void()> proceedFn;
-  grpc::ServerContext grpcCtx{};
+  HandlerState *state;
+  grpc::ServerContext grpc_ctx{};
   bool processed{false};
 };
 
 struct HandlerState {
   grpc::ServerCompletionQueue *cq;
   folly::Executor *executor;
-  std::function<void(CallDataBase *)> proceedFn;
-  std::function<void()> registerFn;
+  std::function<void(CallDataBase *)> proceed_fn;
+  std::function<void()> register_fn;
 
   HandlerState(grpc::ServerCompletionQueue *cq, folly::Executor *executor)
       : cq{cq}, executor{executor} {}
@@ -71,51 +71,49 @@ public:
   template <typename Request, typename Reply>
   using Hanlder = std::function<folly::coro::Task<void>(
       Reply &reply, const Request &request, THanlderCtx &ctx)>;
-  using AddToRuntimeFn = std::function<std::unique_ptr<HandlerState>(
-      RuntimeCtxBase<TService> &runtimeCtx)>;
+  using BindHandlerFn = std::function<std::unique_ptr<HandlerState>(
+      RuntimeCtxBase<TService> &runtime_ctx)>;
 
   explicit RpcHanlderRegistry(THanlderCtx hanlder_ctx)
       : hanlder_ctx_{hanlder_ctx} {}
 
   std::vector<std::unique_ptr<HandlerState>>
-  addHanldersToRuntime(RuntimeCtxBase<TService> &runtimeCtx) {
+  bindRuntime(RuntimeCtxBase<TService> &runtime_ctx) {
     std::vector<std::unique_ptr<HandlerState>> states{};
-    std::for_each(handlers_.begin(), handlers_.end(), [&](auto &addToRuntime) {
-      states.emplace_back(addToRuntime(runtimeCtx));
-    });
+    std::for_each(hanlder_binders_.begin(), hanlder_binders_.end(),
+                  [&](auto &add_to_runtime) {
+                    states.emplace_back(add_to_runtime(runtime_ctx));
+                  });
 
     return states;
   }
 
-  template <
-      auto TGrpcRegisterFn,
-      typename Request = typename detail::unwrap_request<TGrpcRegisterFn>::type,
-      typename Reply = typename detail::unwrap_reply<TGrpcRegisterFn>::type>
+  template <auto TGrpcRegisterFn,
+            typename Request = typename unwrap_request<TGrpcRegisterFn>::type,
+            typename Reply = typename unwrap_reply<TGrpcRegisterFn>::type>
   void registerHandler(Hanlder<Request, Reply> &&process) {
     struct CallData : public CallDataBase {
       grpc::ServerAsyncResponseWriter<Reply> responder;
-      HandlerState *state;
       Request request{};
       Reply reply{};
 
       explicit CallData(HandlerState *state)
-          : CallDataBase{[=]() { state->proceedFn(this); }},
-            responder{&grpcCtx}, state{state} {}
+          : CallDataBase{state}, responder{&grpc_ctx} {}
     };
 
-    AddToRuntimeFn addToRuntime =
+    BindHandlerFn bind_hanlder =
         [&hanlder_ctx = hanlder_ctx_,
          process = std::move(process)](RuntimeCtxBase<TService> &runtime_ctx)
         -> std::unique_ptr<HandlerState> {
       auto state =
           std::make_unique<HandlerState>(runtime_ctx.cq, runtime_ctx.executor);
 
-      state->proceedFn = [&hanlder_ctx = hanlder_ctx, &process = process,
-                          state = state.get()](CallDataBase *baseData) {
+      state->proceed_fn = [&hanlder_ctx = hanlder_ctx, &process = process,
+                           state = state.get()](CallDataBase *baseData) {
         auto data = static_cast<CallData *>(baseData);
         if (!data->processed) {
           data->processed = true;
-          state->registerFn();
+          state->register_fn();
 
           process(data->reply, data->request, hanlder_ctx)
               .scheduleOn(state->executor)
@@ -129,30 +127,30 @@ public:
           delete data; // NOLINT
         }
       };
-      state->registerFn = [statePtr = state.get(),
-                           service = runtime_ctx.service]() {
-        auto data = new CallData(statePtr); // NOLINT
-        (service->*TGrpcRegisterFn)(&(data->grpcCtx), &(data->request),
-                                    &(data->responder), statePtr->cq,
-                                    statePtr->cq, data);
+      state->register_fn = [state = state.get(),
+                            service = runtime_ctx.service]() {
+        auto data = new CallData(state); // NOLINT
+        (service->*TGrpcRegisterFn)(&(data->grpc_ctx), &(data->request),
+                                    &(data->responder), state->cq, state->cq,
+                                    data);
       };
 
-      state->registerFn();
+      state->register_fn();
       return state;
     };
 
-    handlers_.emplace_back(std::move(addToRuntime));
+    hanlder_binders_.emplace_back(std::move(bind_hanlder));
   }
 
 private:
   THanlderCtx hanlder_ctx_;
-  std::vector<AddToRuntimeFn> handlers_{};
+  std::vector<BindHandlerFn> hanlder_binders_{};
 };
 
 template <typename TService> class ServiceRuntimeBase {
 public:
   using RuntimeCtx = RuntimeCtxBase<TService>;
-  using AddHanldersFn =
+  using BindRegistryFn =
       std::function<std::vector<std::unique_ptr<HandlerState>>(RuntimeCtx &)>;
 
   void serve() {
@@ -163,11 +161,12 @@ public:
         break;
       }
 
-      (static_cast<CallDataBase *>(tag))->proceedFn();
+      auto *call_data = static_cast<CallDataBase *>(tag);
+      call_data->state->proceed_fn(call_data);
     }
   }
 
-  ServiceRuntimeBase(RuntimeCtx ctx, AddHanldersFn &addHandlers)
+  ServiceRuntimeBase(RuntimeCtx ctx, BindRegistryFn &addHandlers)
       : ctx_{ctx}, handler_states_{addHandlers(ctx_)} {}
 
   ~ServiceRuntimeBase() {
@@ -177,10 +176,10 @@ public:
     }
   }
 
-  ServiceRuntimeBase(const ServiceRuntimeBase &) = default;
-  ServiceRuntimeBase(ServiceRuntimeBase &&) noexcept = default;
-  ServiceRuntimeBase &operator=(const ServiceRuntimeBase &) = default;
-  ServiceRuntimeBase &operator=(ServiceRuntimeBase &&) noexcept = default;
+  ServiceRuntimeBase(const ServiceRuntimeBase &) = delete;
+  ServiceRuntimeBase(ServiceRuntimeBase &&) noexcept = delete;
+  ServiceRuntimeBase &operator=(const ServiceRuntimeBase &) = delete;
+  ServiceRuntimeBase &operator=(ServiceRuntimeBase &&) noexcept = delete;
 
 private:
   RuntimeCtx ctx_;

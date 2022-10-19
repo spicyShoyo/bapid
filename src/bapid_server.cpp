@@ -65,14 +65,15 @@ folly::CancellationToken BapidServer::startRuntimes() {
   auto guard = folly::copy_to_shared_ptr(folly::makeGuard(
       [source = std::move(source)]() { source.requestCancellation(); }));
 
-  BapidServiceRuntime::AddHanldersFn addHandlers = [&](BapidRuntimeCtx &ctx) {
-    return hanlder_registry_->addHanldersToRuntime(ctx);
-  };
+  BapidServiceRuntime::BindRegistryFn bind_registry =
+      [&](BapidRuntimeCtx &runtime_ctx) {
+        return hanlder_registry_->bindRuntime(runtime_ctx);
+      };
 
   for (int i = 0; i < numThreads_; i++) {
     runtimes_.emplace_back(std::make_unique<BapidServiceRuntime>(
         BapidRuntimeCtx{&service_, cqs_[i].get(), executor_.get()},
-        addHandlers));
+        bind_registry));
     threads_.emplace_back(
         [runtime = runtimes_.back().get(), guard = guard]() mutable {
           runtime->serve();
