@@ -30,9 +30,6 @@ using BapidHanlderRegistry =
 
 class BapidServer final {
 public:
-  using ServiceRuntime = RpcServiceRuntime<BapidService>;
-  using RuntimeCtx = RpcRuntimeCtx<BapidService>;
-
   explicit BapidServer(std::string addr, int numThreads = 2);
 
   ~BapidServer();
@@ -48,16 +45,15 @@ private:
   folly::CancellationToken startRuntimes();
   void initHandlers();
 
-  int numThreads_;
+  const std::string addr_;
+  const int numThreads_;
+
   folly::EventBase *evb_;
   folly::Executor::KeepAlive<> executor_ = folly::getGlobalCPUExecutor();
-  const std::string addr_;
   BapidService::AsyncService service_{};
   std::vector<std::unique_ptr<grpc::ServerCompletionQueue>> cqs_{};
   std::unique_ptr<grpc::Server> server_;
 
-  std::unique_ptr<BapidHanlderRegistry> hanlder_registry_;
-  std::vector<std::unique_ptr<ServiceRuntime>> runtimes_;
   std::vector<std::thread> threads_;
 };
 } // namespace bapid

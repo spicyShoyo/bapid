@@ -25,26 +25,28 @@ void writeMessage(folly::File &file, std::string_view message) {
 
 int main(int argc, char **argv) {
   folly::init(&argc, &argv);
-  XCHECK(!FLAGS_log_dir.empty());
 
-  std::string log_filename = FLAGS_log_dir + "/bapid.log";
   std::string rpc_addr = "localhost:50051";
+  std::string log_filename;
 
   folly::File original_stderr =
       folly::File{kStderrFileno, /*ownsFd=*/false}.dupCloseOnExec();
-
-  folly::File logHandle(log_filename, O_APPEND | O_CREAT | O_WRONLY | O_CLOEXEC,
-                        kLogFilePerms);
-  dup2(logHandle.fd(), kStdoutFileno);
-  dup2(logHandle.fd(), kStderrFileno);
+  if (!FLAGS_log_dir.empty()) {
+    log_filename = FLAGS_log_dir + "/bapid.log";
+    folly::File logHandle(
+        log_filename, O_APPEND | O_CREAT | O_WRONLY | O_CLOEXEC, kLogFilePerms);
+    dup2(logHandle.fd(), kStdoutFileno);
+    dup2(logHandle.fd(), kStderrFileno);
+  }
 
   bapid::BapidServer server{rpc_addr};
-  server.serve(folly::makeSemiFutureWith([&, original_stderr = std::move(
-                                                 original_stderr)]() mutable {
-    XLOG(INFO) << "init";
-    writeMessage(original_stderr, fmt::format("serving at {:s}; log at {:s}",
-                                              rpc_addr, log_filename));
-    original_stderr.close();
-  }));
+  server.serve(folly::makeSemiFutureWith(
+      [&, original_stderr = std::move(original_stderr)]() mutable {
+        XLOG(INFO) << "init";
+        writeMessage(original_stderr,
+                     fmt::format("serving at {:s}; log at {:s}", rpc_addr,
+                                 log_filename.empty() ? "-" : log_filename));
+        original_stderr.close();
+      }));
   return 0;
 }
