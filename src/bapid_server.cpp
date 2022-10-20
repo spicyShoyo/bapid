@@ -17,6 +17,10 @@ constexpr std::chrono::milliseconds kShutdownWait =
     std::chrono::milliseconds(200);
 };
 
+struct BapidHandlerCtx {
+  BapidServer *server;
+};
+
 struct BapidHandlers {
   folly::coro::Task<void> ping(bapid::PingReply &reply,
                                const bapid::PingRequest &request,
@@ -33,6 +37,15 @@ struct BapidHandlers {
   };
 };
 
+void BapidServer::initRegistry() {
+  auto registry = std::make_unique<BapidHanlderRegistry>(BapidHandlerCtx{this});
+  registry->registerHandler<&BapidService::AsyncService::RequestPing>(
+      &BapidHandlers::ping);
+  registry->registerHandler<&BapidService::AsyncService::RequestShutdown>(
+      &BapidHandlers::shutdown);
+  registry_ = std::move(registry);
+}
+
 BapidServer::BapidServer(std::string addr, int numThreads)
     : RpcServerBase(std::move(addr), numThreads) {
   grpc::ServerBuilder builder{};
@@ -43,15 +56,6 @@ BapidServer::BapidServer(std::string addr, int numThreads)
   }
   server_ = builder.BuildAndStart();
   initRegistry();
-}
-
-void BapidServer::initRegistry() {
-  auto registry = std::make_unique<BapidHanlderRegistry>(BapidHandlerCtx{this});
-  registry->registerHandler<&BapidService::AsyncService::RequestPing>(
-      &BapidHandlers::ping);
-  registry->registerHandler<&BapidService::AsyncService::RequestShutdown>(
-      &BapidHandlers::shutdown);
-  registry_ = std::move(registry);
 }
 
 std::unique_ptr<IRpcServiceRuntime>

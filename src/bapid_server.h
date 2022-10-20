@@ -20,11 +20,7 @@
 
 namespace bapid {
 
-class BapidServer;
-struct BapidHandlerCtx {
-  BapidServer *server;
-};
-
+struct BapidHandlerCtx;
 struct BapidHandlers;
 using BapidHanlderRegistry =
     RpcHanlderRegistry<BapidService, BapidHandlerCtx, BapidHandlers>;
