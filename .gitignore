@@ -1,4 +1,4 @@
-.vscode
+src/if
 logs
 
 ### Added by Hedron's Bazel Compile Commands Extractor: https://github.com/hedronvision/bazel-compile-commands-extractor
