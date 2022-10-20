@@ -59,15 +59,10 @@ struct HandlerState {
 };
 } // namespace
 
-template <typename TService> struct RpcRuntimeCtx {
-  typename TService::AsyncService *service;
+struct RpcRuntimeCtx {
+  grpc::Service *service;
   grpc::ServerCompletionQueue *cq;
   folly::Executor *executor;
-
-  RpcRuntimeCtx(grpc::Service *service, grpc::ServerCompletionQueue *cq,
-                folly::Executor *executor)
-      : service{dynamic_cast<typename TService::AsyncService *>(service)},
-        cq{cq}, executor{executor} {}
 };
 
 class IRpcHanlderRegistry {
@@ -87,14 +82,14 @@ public:
   using Hanlder = folly::coro::Task<void> (THanlders::*)(Reply &reply,
                                                          const Request &request,
                                                          THanlderCtx &ctx);
-  using BindHandlerFn = std::function<std::unique_ptr<HandlerState>(
-      RpcRuntimeCtx<TService> &runtime_ctx)>;
+  using BindHandlerFn =
+      std::function<std::unique_ptr<HandlerState>(RpcRuntimeCtx &runtime_ctx)>;
 
   explicit RpcHanlderRegistry(THanlderCtx hanlder_ctx)
       : hanlder_ctx_{hanlder_ctx} {}
 
   std::vector<std::unique_ptr<HandlerState>>
-  bindRuntime(RpcRuntimeCtx<TService> &runtime_ctx) {
+  bindRuntime(RpcRuntimeCtx &runtime_ctx) {
     std::vector<std::unique_ptr<HandlerState>> states{};
     std::for_each(hanlder_binders_.begin(), hanlder_binders_.end(),
                   [&](auto &bind_handler) {
@@ -117,9 +112,9 @@ public:
           : CallDataBase{state}, responder{&grpc_ctx} {}
     };
 
-    BindHandlerFn bind_hanlder = [this,
-                                  process](RpcRuntimeCtx<TService> &runtime_ctx)
-        -> std::unique_ptr<HandlerState> {
+    BindHandlerFn bind_hanlder =
+        [this,
+         process](RpcRuntimeCtx &runtime_ctx) -> std::unique_ptr<HandlerState> {
       auto state =
           std::make_unique<HandlerState>(runtime_ctx.cq, runtime_ctx.executor);
 
@@ -144,7 +139,9 @@ public:
         }
       };
       state->register_fn = [state = state.get(),
-                            service = runtime_ctx.service]() {
+                            service =
+                                dynamic_cast<typename TService::AsyncService *>(
+                                    runtime_ctx.service)]() {
         auto data = new CallData(state); // NOLINT
         (service->*TGrpcRegisterFn)(&(data->grpc_ctx), &(data->request),
                                     &(data->responder), state->cq, state->cq,
@@ -164,26 +161,13 @@ private:
   std::vector<BindHandlerFn> hanlder_binders_{};
 };
 
-class IRpcServiceRuntime {
+class RpcServiceRuntime {
 public:
-  virtual void serve() = 0;
-  virtual ~IRpcServiceRuntime() = default;
-
-  IRpcServiceRuntime() = default;
-  IRpcServiceRuntime(const IRpcServiceRuntime &) = default;
-  IRpcServiceRuntime(IRpcServiceRuntime &&) = default;
-  IRpcServiceRuntime &operator=(const IRpcServiceRuntime &) = default;
-  IRpcServiceRuntime &operator=(IRpcServiceRuntime &&) = default;
-};
-
-template <typename TService>
-class RpcServiceRuntime : public IRpcServiceRuntime {
-public:
-  using RuntimeCtx = RpcRuntimeCtx<TService>;
   using BindRegistryFn =
-      std::function<std::vector<std::unique_ptr<HandlerState>>(RuntimeCtx &)>;
+      std::function<std::vector<std::unique_ptr<HandlerState>>(
+          RpcRuntimeCtx &)>;
 
-  void serve() override {
+  void serve() const {
     void *tag{};
     bool ok{false};
     while (ctx_.cq->Next(&tag, &ok)) {
@@ -196,10 +180,10 @@ public:
     }
   }
 
-  RpcServiceRuntime(RuntimeCtx ctx, BindRegistryFn &bind_registry)
-      : IRpcServiceRuntime(), ctx_{ctx}, handler_states_{bind_registry(ctx_)} {}
+  RpcServiceRuntime(RpcRuntimeCtx ctx, BindRegistryFn &bind_registry)
+      : ctx_{ctx}, handler_states_{bind_registry(ctx_)} {}
 
-  ~RpcServiceRuntime() override {
+  ~RpcServiceRuntime() {
     void *ignored_tag{};
     bool ignored_ok{};
     while (ctx_.cq->Next(&ignored_tag, &ignored_ok)) {
@@ -212,7 +196,7 @@ public:
   RpcServiceRuntime &operator=(RpcServiceRuntime &&) noexcept = delete;
 
 private:
-  RuntimeCtx ctx_;
+  RpcRuntimeCtx ctx_;
   std::vector<std::unique_ptr<HandlerState>> handler_states_{};
 };
 

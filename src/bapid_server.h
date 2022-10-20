@@ -20,18 +20,19 @@
 
 namespace bapid {
 
-struct BapidHandlerCtx;
-struct BapidHandlers;
-using BapidHanlderRegistry =
-    RpcHanlderRegistry<BapidService, BapidHandlerCtx, BapidHandlers>;
-
 class BapidServer : public RpcServerBase {
 public:
   explicit BapidServer(std::string addr, int numThreads = 2);
 
 private:
-  std::unique_ptr<IRpcServiceRuntime>
-  buildRuntime(grpc::ServerCompletionQueue *cq) override;
-  std::unique_ptr<IRpcHanlderRegistry> buildRegistry();
+  RpcServiceRuntime::BindRegistryFn getBindRegistry() override;
 };
+
+struct BapidHandlerCtx {
+  BapidServer *server;
+};
+struct BapidHandlers;
+using BapidHanlderRegistry =
+    RpcHanlderRegistry<BapidService, BapidHandlerCtx, BapidHandlers>;
+
 } // namespace bapid

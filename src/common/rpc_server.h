@@ -35,8 +35,7 @@ public:
 protected:
   void initService(std::unique_ptr<grpc::Service> service,
                    std::unique_ptr<IRpcHanlderRegistry> registry);
-  virtual std::unique_ptr<IRpcServiceRuntime>
-  buildRuntime(grpc::ServerCompletionQueue *cq) = 0;
+  virtual RpcServiceRuntime::BindRegistryFn getBindRegistry() = 0;
 
   folly::CancellationToken startRuntimes();
 
@@ -50,7 +49,7 @@ protected:
   std::unique_ptr<grpc::Server> server_;
   std::unique_ptr<IRpcHanlderRegistry> registry_;
 
-  std::vector<std::unique_ptr<IRpcServiceRuntime>> runtimes_;
+  std::vector<std::unique_ptr<RpcServiceRuntime>> runtimes_;
   std::vector<std::thread> threads_;
 };
 } // namespace bapid
