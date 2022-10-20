@@ -2,10 +2,9 @@ load("@rules_cc//cc:defs.bzl", "cc_binary")
 package(default_visibility = ["//visibility:public"])
 
 cc_library(
-  name = "service_runtime",
-  srcs = ["service_runtime.cpp"],
-  hdrs = ["service_runtime.h"],
-  deps = ["//if:rpc_lib"]
+  name = "rpc",
+  srcs = ["rpc_runtime.cpp", "rpc_server.cpp"],
+  hdrs = ["rpc_runtime.h", "rpc_server.h"],
 )
 
 

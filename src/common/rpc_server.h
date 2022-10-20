@@ -1,0 +1,51 @@
+#pragma once
+
+#include "src/common/rpc_runtime.h"
+#include <folly/CancellationToken.h>
+#include <folly/Unit.h>
+#include <folly/executors/GlobalExecutor.h>
+#include <folly/experimental/coro/Task.h>
+#include <folly/io/async/EventBase.h>
+#include <folly/logging/xlog.h>
+#include <grpc/support/log.h>
+
+#include <functional>
+#include <grpcpp/completion_queue.h>
+#include <grpcpp/grpcpp.h>
+#include <memory>
+#include <tuple>
+#include <type_traits>
+
+namespace bapid {
+
+class RpcServerBase {
+public:
+  RpcServerBase(std::string addr, int numThreads);
+
+  virtual ~RpcServerBase();
+  RpcServerBase(RpcServerBase &&other) noexcept = delete;
+  RpcServerBase &operator=(RpcServerBase &&other) noexcept = delete;
+  RpcServerBase &operator=(const RpcServerBase &other) = delete;
+  RpcServerBase(const RpcServerBase &other) = delete;
+
+  void serve(folly::SemiFuture<folly::Unit> &&on_serve);
+  void initiateShutdown();
+
+protected:
+  virtual std::unique_ptr<IRpcServiceRuntime>
+  buildRuntime(grpc::ServerCompletionQueue *cq) = 0;
+
+  folly::CancellationToken startRuntimes();
+
+  const std::string addr_;
+  const int numThreads_;
+  folly::EventBase *evb_;
+  folly::Executor::KeepAlive<> executor_ = folly::getGlobalCPUExecutor();
+
+  std::vector<std::unique_ptr<grpc::ServerCompletionQueue>> cqs_{};
+  std::unique_ptr<grpc::Server> server_;
+  std::unique_ptr<IRpcHanlderRegistry> registry_;
+  std::vector<std::unique_ptr<IRpcServiceRuntime>> runtimes_;
+  std::vector<std::thread> threads_;
+};
+} // namespace bapid
