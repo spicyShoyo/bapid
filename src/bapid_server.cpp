@@ -12,11 +12,6 @@
 #include <memory>
 
 namespace bapid {
-namespace {
-constexpr std::chrono::milliseconds kShutdownWait =
-    std::chrono::milliseconds(200);
-};
-
 struct BapidHandlerCtx {
   BapidServer *server;
 };

@@ -1,4 +1,14 @@
 #!/bin/bash
 
 SCRIPT_TARGET=$(./dev_scripts/script_target -t)
-bazel run -c dbg ${SCRIPT_TARGET} -- --log_dir=$(pwd)/logs --logbuflevel=-1
+while getopts ':l' 'OPTKEY'; do
+  case ${OPTKEY} in
+    l)
+      bazel run --strip=never --copt -g ${SCRIPT_TARGET} -- --log_dir=$(pwd)/logs --logbuflevel=-1
+      exit 0
+      ;;
+  esac
+done
+
+bazel run --strip=never --copt -g ${SCRIPT_TARGET}
+

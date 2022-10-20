@@ -42,11 +42,11 @@ int main(int argc, char **argv) {
   bapid::BapidServer server{rpc_addr};
   server.serve(folly::makeSemiFutureWith(
       [&, original_stderr = std::move(original_stderr)]() mutable {
-        XLOG(INFO) << "init";
         writeMessage(original_stderr,
                      fmt::format("serving at {:s}; log at {:s}", rpc_addr,
                                  log_filename.empty() ? "-" : log_filename));
         original_stderr.close();
+        XLOG(INFO) << "init";
       }));
   return 0;
 }

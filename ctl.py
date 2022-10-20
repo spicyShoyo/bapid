@@ -29,8 +29,8 @@ def shutdown(*_):
 
 # Local dev commands
 @register("run")
-def run(*_):
-    check_call(["./dev_scripts/run"])
+def run(args):
+    check_call(["./dev_scripts/run"] + args)
 
 @register("dbg")
 def dbg(*_):
