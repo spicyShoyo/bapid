@@ -39,43 +39,55 @@ BapidServer::BapidServer(std::string addr, int numThreads)
 
   grpc::ServerBuilder builder{};
   builder.AddListeningPort(addr_, grpc::InsecureServerCredentials());
-  builder.RegisterService(&service_);
+  registerService(builder);
   for (int i = 0; i < numThreads; i++) {
     cqs_.emplace_back(builder.AddCompletionQueue());
   }
   server_ = builder.BuildAndStart();
+  initRegistry();
 }
 
-folly::CancellationToken BapidServer::startRuntimes() {
+void BapidServer::registerService(grpc::ServerBuilder &builder) {
+  builder.RegisterService(&service_);
+}
+
+void BapidServer::initRegistry() {
   auto registry = std::make_unique<BapidHanlderRegistry>(BapidHandlerCtx{this});
   registry->registerHandler<&BapidService::AsyncService::RequestPing>(
       &BapidHandlers::ping);
   registry->registerHandler<&BapidService::AsyncService::RequestShutdown>(
       &BapidHandlers::shutdown);
-  auto *registry_ptr = registry.get();
+  registry_ = std::move(registry);
+}
 
-  folly::CancellationSource source;
-  auto token = source.getToken();
-  auto guard = folly::copy_to_shared_ptr(folly::makeGuard(
-      [source = std::move(source), registry = std::move(registry)]() {
-        source.requestCancellation();
-      }));
+std::unique_ptr<IRpcServiceRuntime>
+BapidServer::buildRuntime(grpc::ServerCompletionQueue *cq) {
+  auto *registry = dynamic_cast<BapidHanlderRegistry *>(registry_.get());
 
   using ServiceRuntime = RpcServiceRuntime<BapidService>;
   using RuntimeCtx = RpcRuntimeCtx<BapidService>;
 
   ServiceRuntime::BindRegistryFn bind_registry = [&](RuntimeCtx &runtime_ctx) {
-    return registry_ptr->bindRuntime(runtime_ctx);
+    return registry->bindRuntime(runtime_ctx);
   };
 
+  return std::make_unique<ServiceRuntime>(
+      RuntimeCtx{&service_, cq, executor_.get()}, bind_registry);
+}
+
+folly::CancellationToken BapidServer::startRuntimes() {
+  folly::CancellationSource source;
+  auto token = source.getToken();
+  auto guard = folly::copy_to_shared_ptr(folly::makeGuard(
+      [source = std::move(source)]() { source.requestCancellation(); }));
+
   for (int i = 0; i < numThreads_; i++) {
-    auto rt = std::make_unique<ServiceRuntime>(
-        RuntimeCtx{&service_, cqs_[i].get(), executor_.get()}, bind_registry);
-    threads_.emplace_back([runtime = std::move(rt), guard = guard]() mutable {
-      runtime->serve();
-      runtime.reset(nullptr);
-      guard.reset();
-    });
+    runtimes_.emplace_back(buildRuntime(cqs_[i].get()));
+    threads_.emplace_back(
+        [runtime = runtimes_.back().get(), guard = guard]() mutable {
+          runtime->serve();
+          guard.reset();
+        });
   }
 
   return token;
@@ -93,7 +105,12 @@ void BapidServer::serve(folly::SemiFuture<folly::Unit> &&on_serve) {
   for (auto &thread : threads_) {
     thread.join();
   }
+
   threads_.clear();
+  XLOG(INFO) << "draining...";
+  runtimes_.clear();
+  server_.reset(nullptr);
+  cqs_.clear();
 }
 
 BapidServer::~BapidServer() { XLOG(INFO) << "shutdown complete"; }

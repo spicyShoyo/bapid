@@ -65,8 +65,18 @@ template <typename TService> struct RpcRuntimeCtx {
   folly::Executor *executor;
 };
 
+class IRpcHanlderRegistry {
+public:
+  virtual ~IRpcHanlderRegistry() = default;
+  IRpcHanlderRegistry() = default;
+  IRpcHanlderRegistry(const IRpcHanlderRegistry &) = default;
+  IRpcHanlderRegistry(IRpcHanlderRegistry &&) = default;
+  IRpcHanlderRegistry &operator=(const IRpcHanlderRegistry &) = default;
+  IRpcHanlderRegistry &operator=(IRpcHanlderRegistry &&) = default;
+};
+
 template <typename TService, typename THanlderCtx, typename THanlders>
-class RpcHanlderRegistry {
+class RpcHanlderRegistry : public IRpcHanlderRegistry {
 public:
   template <typename Request, typename Reply>
   using Hanlder = folly::coro::Task<void> (THanlders::*)(Reply &reply,
@@ -149,13 +159,26 @@ private:
   std::vector<BindHandlerFn> hanlder_binders_{};
 };
 
-template <typename TService> class RpcServiceRuntime {
+class IRpcServiceRuntime {
+public:
+  virtual void serve() = 0;
+  virtual ~IRpcServiceRuntime() = default;
+
+  IRpcServiceRuntime() = default;
+  IRpcServiceRuntime(const IRpcServiceRuntime &) = default;
+  IRpcServiceRuntime(IRpcServiceRuntime &&) = default;
+  IRpcServiceRuntime &operator=(const IRpcServiceRuntime &) = default;
+  IRpcServiceRuntime &operator=(IRpcServiceRuntime &&) = default;
+};
+
+template <typename TService>
+class RpcServiceRuntime : public IRpcServiceRuntime {
 public:
   using RuntimeCtx = RpcRuntimeCtx<TService>;
   using BindRegistryFn =
       std::function<std::vector<std::unique_ptr<HandlerState>>(RuntimeCtx &)>;
 
-  void serve() {
+  void serve() override {
     void *tag{};
     bool ok{false};
     while (ctx_.cq->Next(&tag, &ok)) {
@@ -169,9 +192,9 @@ public:
   }
 
   RpcServiceRuntime(RuntimeCtx ctx, BindRegistryFn &bind_registry)
-      : ctx_{ctx}, handler_states_{bind_registry(ctx_)} {}
+      : IRpcServiceRuntime(), ctx_{ctx}, handler_states_{bind_registry(ctx_)} {}
 
-  ~RpcServiceRuntime() {
+  ~RpcServiceRuntime() override {
     void *ignored_tag{};
     bool ignored_ok{};
     while (ctx_.cq->Next(&ignored_tag, &ignored_ok)) {

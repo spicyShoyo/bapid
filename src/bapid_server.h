@@ -42,18 +42,24 @@ public:
   void initiateShutdown();
 
 private:
+  void registerService(grpc::ServerBuilder &builder);
+  void initRegistry();
+  std::unique_ptr<IRpcServiceRuntime>
+  buildRuntime(grpc::ServerCompletionQueue *cq);
+
   folly::CancellationToken startRuntimes();
-  void initHandlers();
 
   const std::string addr_;
   const int numThreads_;
-
   folly::EventBase *evb_;
   folly::Executor::KeepAlive<> executor_ = folly::getGlobalCPUExecutor();
-  BapidService::AsyncService service_{};
+
   std::vector<std::unique_ptr<grpc::ServerCompletionQueue>> cqs_{};
   std::unique_ptr<grpc::Server> server_;
-
+  std::unique_ptr<IRpcHanlderRegistry> registry_;
+  std::vector<std::unique_ptr<IRpcServiceRuntime>> runtimes_;
   std::vector<std::thread> threads_;
+
+  BapidService::AsyncService service_{};
 };
 } // namespace bapid
