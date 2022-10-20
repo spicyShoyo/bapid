@@ -23,16 +23,19 @@ namespace bapid {
 class BapidServer : public RpcServerBase {
 public:
   explicit BapidServer(std::string addr, int numThreads = 2);
-
-private:
-  RpcServiceRuntime::BindRegistryFn getBindRegistry() override;
 };
 
 struct BapidHandlerCtx {
   BapidServer *server;
 };
-struct BapidHandlers;
-using BapidHanlderRegistry =
-    RpcHanlderRegistry<BapidService, BapidHandlerCtx, BapidHandlers>;
 
+struct BapidHandlers {
+  folly::coro::Task<void> ping(bapid::PingReply &reply,
+                               const bapid::PingRequest &request,
+                               BapidHandlerCtx &ctx);
+
+  folly::coro::Task<void> shutdown(bapid::Empty &reply,
+                                   const bapid::Empty &reuqest,
+                                   BapidHandlerCtx &ctx);
+};
 } // namespace bapid

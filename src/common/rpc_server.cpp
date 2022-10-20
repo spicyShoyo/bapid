@@ -41,11 +41,10 @@ folly::CancellationToken RpcServerBase::startRuntimes() {
   auto guard = folly::copy_to_shared_ptr(folly::makeGuard(
       [source = std::move(source)]() { source.requestCancellation(); }));
 
-  auto bind_registry = getBindRegistry();
   for (int i = 0; i < numThreads_; i++) {
     runtimes_.emplace_back(std::make_unique<RpcServiceRuntime>(
         RpcRuntimeCtx{service_.get(), cqs_[i].get(), executor_.get()},
-        bind_registry));
+        registry_));
     threads_.emplace_back(
         [runtime = runtimes_.back().get(), guard = guard]() mutable {
           runtime->serve();

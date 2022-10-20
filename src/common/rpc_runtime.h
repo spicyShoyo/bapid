@@ -67,7 +67,11 @@ struct RpcRuntimeCtx {
 
 class IRpcHanlderRegistry {
 public:
+  virtual std::vector<std::unique_ptr<HandlerState>>
+  bindRuntime(RpcRuntimeCtx &runtime_ctx) = 0;
+
   virtual ~IRpcHanlderRegistry() = default;
+
   IRpcHanlderRegistry() = default;
   IRpcHanlderRegistry(const IRpcHanlderRegistry &) = default;
   IRpcHanlderRegistry(IRpcHanlderRegistry &&) = default;
@@ -89,7 +93,7 @@ public:
       : hanlder_ctx_{hanlder_ctx} {}
 
   std::vector<std::unique_ptr<HandlerState>>
-  bindRuntime(RpcRuntimeCtx &runtime_ctx) {
+  bindRuntime(RpcRuntimeCtx &runtime_ctx) override {
     std::vector<std::unique_ptr<HandlerState>> states{};
     std::for_each(hanlder_binders_.begin(), hanlder_binders_.end(),
                   [&](auto &bind_handler) {
@@ -163,10 +167,6 @@ private:
 
 class RpcServiceRuntime {
 public:
-  using BindRegistryFn =
-      std::function<std::vector<std::unique_ptr<HandlerState>>(
-          RpcRuntimeCtx &)>;
-
   void serve() const {
     void *tag{};
     bool ok{false};
@@ -180,8 +180,9 @@ public:
     }
   }
 
-  RpcServiceRuntime(RpcRuntimeCtx ctx, BindRegistryFn &bind_registry)
-      : ctx_{ctx}, handler_states_{bind_registry(ctx_)} {}
+  RpcServiceRuntime(RpcRuntimeCtx ctx,
+                    std::unique_ptr<IRpcHanlderRegistry> &registry)
+      : ctx_{ctx}, handler_states_{registry->bindRuntime(ctx_)} {}
 
   ~RpcServiceRuntime() {
     void *ignored_tag{};

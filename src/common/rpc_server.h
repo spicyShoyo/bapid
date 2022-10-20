@@ -35,7 +35,6 @@ public:
 protected:
   void initService(std::unique_ptr<grpc::Service> service,
                    std::unique_ptr<IRpcHanlderRegistry> registry);
-  virtual RpcServiceRuntime::BindRegistryFn getBindRegistry() = 0;
 
   folly::CancellationToken startRuntimes();
 
