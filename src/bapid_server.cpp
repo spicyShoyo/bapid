@@ -32,25 +32,18 @@ struct BapidHandlers {
   };
 };
 
-void BapidServer::initRegistry() {
+std::unique_ptr<IRpcHanlderRegistry> BapidServer::buildRegistry() {
   auto registry = std::make_unique<BapidHanlderRegistry>(BapidHandlerCtx{this});
   registry->registerHandler<&BapidService::AsyncService::RequestPing>(
       &BapidHandlers::ping);
   registry->registerHandler<&BapidService::AsyncService::RequestShutdown>(
       &BapidHandlers::shutdown);
-  registry_ = std::move(registry);
+  return std::move(registry);
 }
 
 BapidServer::BapidServer(std::string addr, int numThreads)
     : RpcServerBase(std::move(addr), numThreads) {
-  grpc::ServerBuilder builder{};
-  builder.AddListeningPort(addr_, grpc::InsecureServerCredentials());
-  builder.RegisterService(&service_);
-  for (int i = 0; i < numThreads; i++) {
-    cqs_.emplace_back(builder.AddCompletionQueue());
-  }
-  server_ = builder.BuildAndStart();
-  initRegistry();
+  initService(std::make_unique<BapidService::AsyncService>(), buildRegistry());
 }
 
 std::unique_ptr<IRpcServiceRuntime>
@@ -65,7 +58,7 @@ BapidServer::buildRuntime(grpc::ServerCompletionQueue *cq) {
   };
 
   return std::make_unique<ServiceRuntime>(
-      RuntimeCtx{&service_, cq, executor_.get()}, bind_registry);
+      RuntimeCtx{service_.get(), cq, executor_.get()}, bind_registry);
 }
 
 } // namespace bapid

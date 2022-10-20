@@ -8,6 +8,7 @@
 #include <folly/io/async/EventBase.h>
 #include <folly/logging/xlog.h>
 #include <grpc/support/log.h>
+#include <grpcpp/impl/codegen/service_type.h>
 
 #include <functional>
 #include <grpcpp/completion_queue.h>
@@ -32,6 +33,8 @@ public:
   void initiateShutdown();
 
 protected:
+  void initService(std::unique_ptr<grpc::Service> service,
+                   std::unique_ptr<IRpcHanlderRegistry> registry);
   virtual std::unique_ptr<IRpcServiceRuntime>
   buildRuntime(grpc::ServerCompletionQueue *cq) = 0;
 
@@ -42,9 +45,11 @@ protected:
   folly::EventBase *evb_;
   folly::Executor::KeepAlive<> executor_ = folly::getGlobalCPUExecutor();
 
+  std::unique_ptr<grpc::Service> service_;
   std::vector<std::unique_ptr<grpc::ServerCompletionQueue>> cqs_{};
   std::unique_ptr<grpc::Server> server_;
   std::unique_ptr<IRpcHanlderRegistry> registry_;
+
   std::vector<std::unique_ptr<IRpcServiceRuntime>> runtimes_;
   std::vector<std::thread> threads_;
 };

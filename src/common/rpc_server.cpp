@@ -21,6 +21,20 @@ RpcServerBase::RpcServerBase(std::string addr, int numThreads)
   XCHECK(numThreads > 0);
 }
 
+void RpcServerBase::initService(std::unique_ptr<grpc::Service> service,
+                                std::unique_ptr<IRpcHanlderRegistry> registry) {
+  service_ = std::move(service);
+  registry_ = std::move(registry);
+
+  grpc::ServerBuilder builder{};
+  builder.AddListeningPort(addr_, grpc::InsecureServerCredentials());
+  builder.RegisterService(service_.get());
+  for (int i = 0; i < numThreads_; i++) {
+    cqs_.emplace_back(builder.AddCompletionQueue());
+  }
+  server_ = builder.BuildAndStart();
+}
+
 folly::CancellationToken RpcServerBase::startRuntimes() {
   folly::CancellationSource source;
   auto token = source.getToken();
@@ -55,8 +69,6 @@ void RpcServerBase::serve(folly::SemiFuture<folly::Unit> &&on_serve) {
   threads_.clear();
   XLOG(INFO) << "draining...";
   runtimes_.clear();
-  server_.reset(nullptr);
-  cqs_.clear();
 }
 
 RpcServerBase::~RpcServerBase() { XLOG(INFO) << "shutdown complete"; }

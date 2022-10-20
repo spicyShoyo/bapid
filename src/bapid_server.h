@@ -32,8 +32,6 @@ public:
 private:
   std::unique_ptr<IRpcServiceRuntime>
   buildRuntime(grpc::ServerCompletionQueue *cq) override;
-  void initRegistry();
-
-  BapidService::AsyncService service_{};
+  std::unique_ptr<IRpcHanlderRegistry> buildRegistry();
 };
 } // namespace bapid

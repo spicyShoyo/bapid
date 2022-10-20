@@ -63,6 +63,11 @@ template <typename TService> struct RpcRuntimeCtx {
   typename TService::AsyncService *service;
   grpc::ServerCompletionQueue *cq;
   folly::Executor *executor;
+
+  RpcRuntimeCtx(grpc::Service *service, grpc::ServerCompletionQueue *cq,
+                folly::Executor *executor)
+      : service{dynamic_cast<typename TService::AsyncService *>(service)},
+        cq{cq}, executor{executor} {}
 };
 
 class IRpcHanlderRegistry {
