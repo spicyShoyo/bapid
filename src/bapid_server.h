@@ -19,14 +19,10 @@
 
 namespace bapid {
 
-using BapidRuntimeCtx = RpcRuntimeCtx<BapidService>;
-
 class BapidServer;
 struct BapidHandlerCtx {
   BapidServer *server;
 };
-
-using BapidServiceRuntime = RpcServiceRuntime<BapidService>;
 
 struct BapidHandlers;
 using BapidHanlderRegistry =
@@ -34,6 +30,9 @@ using BapidHanlderRegistry =
 
 class BapidServer final {
 public:
+  using ServiceRuntime = RpcServiceRuntime<BapidService>;
+  using RuntimeCtx = RpcRuntimeCtx<BapidService>;
+
   explicit BapidServer(std::string addr, int numThreads = 2);
 
   ~BapidServer();
@@ -58,7 +57,7 @@ private:
   std::unique_ptr<grpc::Server> server_;
 
   std::unique_ptr<BapidHanlderRegistry> hanlder_registry_;
-  std::vector<std::unique_ptr<BapidServiceRuntime>> runtimes_;
+  std::vector<std::unique_ptr<ServiceRuntime>> runtimes_;
   std::vector<std::thread> threads_;
 };
 } // namespace bapid

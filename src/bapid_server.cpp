@@ -1,5 +1,6 @@
 #include "src/bapid_server.h"
 #include "if/bapid.grpc.pb.h"
+#include "src/common/service_runtime.h"
 #include <atomic>
 #include <chrono>
 #include <folly/executors/GlobalExecutor.h>
@@ -48,11 +49,8 @@ BapidServer::BapidServer(std::string addr, int numThreads)
 }
 
 void BapidServer::initHandlers() {
-  BapidHandlerCtx hanlder_ctx{
-      this,
-  };
-
-  hanlder_registry_ = std::make_unique<BapidHanlderRegistry>(hanlder_ctx);
+  hanlder_registry_ =
+      std::make_unique<BapidHanlderRegistry>(BapidHandlerCtx{this});
 
   hanlder_registry_->registerHandler<&BapidService::AsyncService::RequestPing>(
       &BapidHandlers::ping);
@@ -67,15 +65,13 @@ folly::CancellationToken BapidServer::startRuntimes() {
   auto guard = folly::copy_to_shared_ptr(folly::makeGuard(
       [source = std::move(source)]() { source.requestCancellation(); }));
 
-  BapidServiceRuntime::BindRegistryFn bind_registry =
-      [&](BapidRuntimeCtx &runtime_ctx) {
-        return hanlder_registry_->bindRuntime(runtime_ctx);
-      };
+  ServiceRuntime::BindRegistryFn bind_registry = [&](RuntimeCtx &runtime_ctx) {
+    return hanlder_registry_->bindRuntime(runtime_ctx);
+  };
 
   for (int i = 0; i < numThreads_; i++) {
-    runtimes_.emplace_back(std::make_unique<BapidServiceRuntime>(
-        BapidRuntimeCtx{&service_, cqs_[i].get(), executor_.get()},
-        bind_registry));
+    runtimes_.emplace_back(std::make_unique<ServiceRuntime>(
+        RuntimeCtx{&service_, cqs_[i].get(), executor_.get()}, bind_registry));
     threads_.emplace_back(
         [runtime = runtimes_.back().get(), guard = guard]() mutable {
           runtime->serve();
