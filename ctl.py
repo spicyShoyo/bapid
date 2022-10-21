@@ -9,6 +9,7 @@ REGISTRY: dict[str, Callable[[list[str]], None]] = {}
 def register(cmd):
     def inner(func):
         REGISTRY[cmd] = func
+        return func
     return inner
 
 @register("test")
@@ -29,6 +30,7 @@ def shutdown(*_):
 
 # Local dev commands
 @register("run")
+@register("r")
 def run(args):
     check_call(["./dev_scripts/run"] + args)
 

@@ -133,12 +133,11 @@ public:
           XCHECK(data == state->next_call_data.get());
           state->receivingNextRequest();
 
-          data->processed = true;
           (this->hanlders_.*process)(data->reply, data->request,
                                      this->hanlder_ctx_)
-              .scheduleOn(state->executor)
-              .start()
-              .defer([data = data](auto &&) {
+              .semi()
+              .deferValue([data = data](auto &&) {
+                data->processed = true;
                 data->responder.Finish(data->reply, grpc::Status::OK, data);
               })
               .via(state->executor);
