@@ -9,6 +9,7 @@
 #include <grpc/support/log.h>
 #include <grpcpp/completion_queue.h>
 #include <grpcpp/grpcpp.h>
+#include <list>
 #include <memory>
 #include <tuple>
 #include <type_traits>
@@ -45,12 +46,16 @@ struct HandlerState;
 struct CallDataBase {
   HandlerState *state;
   grpc::ServerContext grpc_ctx{};
+  std::list<std::unique_ptr<CallDataBase>>::iterator it;
   bool processed{false};
 };
 
 struct HandlerState {
   grpc::ServerCompletionQueue *cq;
   folly::Executor *executor;
+  std::unique_ptr<CallDataBase> next_call_data{};
+  std::list<std::unique_ptr<CallDataBase>> inflight_call_data{};
+
   std::function<void(CallDataBase *)> proceed_fn;
   std::function<void()> register_fn;
 
@@ -124,9 +129,17 @@ public:
 
       state->proceed_fn = [this, process,
                            state = state.get()](CallDataBase *baseData) {
-        auto data = static_cast<CallData *>(baseData);
+        auto *data = static_cast<CallData *>(baseData);
         if (!data->processed) {
+          XCHECK(data == state->next_call_data.get());
+
           data->processed = true;
+          state->inflight_call_data.emplace_back(
+              std::move(state->next_call_data));
+          state->inflight_call_data.back()->it =
+              state->inflight_call_data.end();
+          state->inflight_call_data.back()->it--;
+
           state->register_fn();
 
           (this->hanlders_.*process)(data->reply, data->request,
@@ -139,7 +152,7 @@ public:
               .via(state->executor);
 
         } else {
-          delete data; // NOLINT
+          state->inflight_call_data.erase(data->it);
         }
       };
 
@@ -147,10 +160,12 @@ public:
                             service =
                                 dynamic_cast<typename TService::AsyncService *>(
                                     runtime_ctx.service)]() {
-        auto data = new CallData(state); // NOLINT
-        (service->*TGrpcRegisterFn)(&(data->grpc_ctx), &(data->request),
-                                    &(data->responder), state->cq, state->cq,
-                                    data);
+        auto data = std::make_unique<CallData>(state);
+        auto *data_ptr = data.get();
+        state->next_call_data = std::move(data);
+        (service->*TGrpcRegisterFn)(&(data_ptr->grpc_ctx), &(data_ptr->request),
+                                    &(data_ptr->responder), state->cq,
+                                    state->cq, data_ptr);
       };
 
       state->register_fn();
