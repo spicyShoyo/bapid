@@ -1,6 +1,24 @@
 #include "src/common/rpc_runtime.h"
 
 namespace bapid {
+
+HandlerState::HandlerState(grpc::ServerCompletionQueue *cq,
+                           folly::Executor *executor)
+    : cq{cq}, executor{executor} {}
+
+void HandlerState::receivingNextRequest() {
+  auto data = receiving_next_request_fn();
+  data.swap(next_call_data);
+
+  if (!data) {
+    return;
+  }
+
+  inflight_call_data.emplace_back(std::move(data));
+  inflight_call_data.back()->it = inflight_call_data.end();
+  inflight_call_data.back()->it--;
+}
+
 void RpcServiceRuntime::serve() const {
   void *tag{};
   bool ok{false};

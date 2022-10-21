@@ -40,6 +40,12 @@ def dbg(*_):
 def refresh(args):
     check_call(["./dev_scripts/refresh"] + args)
 
+@register("t")
+def test_rpc(*_):
+    check_call(["grpc_cli", "call", GRPC_ADDR, "Ping", "name: 'ok'"])
+    check_call(["grpc_cli", "call", GRPC_ADDR, "Ping", "name: 'ok'"])
+    check_call(["grpc_cli", "call", GRPC_ADDR, "Ping", "name: 'ok'"])
+    check_call(["grpc_cli", "call", GRPC_ADDR, "Shutdown", ""])
 
 if __name__ == "__main__":
     if len(sys.argv) == 1:

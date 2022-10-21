@@ -16,7 +16,6 @@
 #include <vector>
 
 namespace bapid {
-namespace {
 template <typename TFn> struct extract_args;
 
 template <typename TRes, typename TKlass, typename... TArgs>
@@ -57,12 +56,11 @@ struct HandlerState {
   std::list<std::unique_ptr<CallDataBase>> inflight_call_data{};
 
   std::function<void(CallDataBase *)> proceed_fn;
-  std::function<void()> register_fn;
+  std::function<std::unique_ptr<CallDataBase>()> receiving_next_request_fn;
 
-  HandlerState(grpc::ServerCompletionQueue *cq, folly::Executor *executor)
-      : cq{cq}, executor{executor} {}
+  HandlerState(grpc::ServerCompletionQueue *cq, folly::Executor *executor);
+  void receivingNextRequest();
 };
-} // namespace
 
 struct RpcRuntimeCtx {
   grpc::Service *service;
@@ -130,18 +128,12 @@ public:
       state->proceed_fn = [this, process,
                            state = state.get()](CallDataBase *baseData) {
         auto *data = static_cast<CallData *>(baseData);
+
         if (!data->processed) {
           XCHECK(data == state->next_call_data.get());
+          state->receivingNextRequest();
 
           data->processed = true;
-          state->inflight_call_data.emplace_back(
-              std::move(state->next_call_data));
-          state->inflight_call_data.back()->it =
-              state->inflight_call_data.end();
-          state->inflight_call_data.back()->it--;
-
-          state->register_fn();
-
           (this->hanlders_.*process)(data->reply, data->request,
                                      this->hanlder_ctx_)
               .scheduleOn(state->executor)
@@ -156,19 +148,18 @@ public:
         }
       };
 
-      state->register_fn = [state = state.get(),
-                            service =
-                                dynamic_cast<typename TService::AsyncService *>(
-                                    runtime_ctx.service)]() {
-        auto data = std::make_unique<CallData>(state);
-        auto *data_ptr = data.get();
-        state->next_call_data = std::move(data);
-        (service->*TGrpcRegisterFn)(&(data_ptr->grpc_ctx), &(data_ptr->request),
-                                    &(data_ptr->responder), state->cq,
-                                    state->cq, data_ptr);
-      };
+      state->receiving_next_request_fn =
+          [state = state.get(),
+           service = dynamic_cast<typename TService::AsyncService *>(
+               runtime_ctx.service)]() {
+            auto data = std::make_unique<CallData>(state);
+            (service->*TGrpcRegisterFn)(&(data->grpc_ctx), &(data->request),
+                                        &(data->responder), state->cq,
+                                        state->cq, data.get());
+            return data;
+          };
 
-      state->register_fn();
+      state->receivingNextRequest();
       return state;
     };
 
