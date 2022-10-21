@@ -142,6 +142,7 @@ public:
           delete data; // NOLINT
         }
       };
+
       state->register_fn = [state = state.get(),
                             service =
                                 dynamic_cast<typename TService::AsyncService *>(
@@ -167,29 +168,11 @@ private:
 
 class RpcServiceRuntime {
 public:
-  void serve() const {
-    void *tag{};
-    bool ok{false};
-    while (ctx_.cq->Next(&tag, &ok)) {
-      if (!ok) {
-        break;
-      }
-
-      auto *call_data = static_cast<CallDataBase *>(tag);
-      call_data->state->proceed_fn(call_data);
-    }
-  }
-
   RpcServiceRuntime(RpcRuntimeCtx ctx,
-                    std::unique_ptr<IRpcHanlderRegistry> &registry)
-      : ctx_{ctx}, handler_states_{registry->bindRuntime(ctx_)} {}
+                    std::unique_ptr<IRpcHanlderRegistry> &registry);
 
-  ~RpcServiceRuntime() {
-    void *ignored_tag{};
-    bool ignored_ok{};
-    while (ctx_.cq->Next(&ignored_tag, &ignored_ok)) {
-    }
-  }
+  void serve() const;
+  ~RpcServiceRuntime();
 
   RpcServiceRuntime(const RpcServiceRuntime &) = delete;
   RpcServiceRuntime(RpcServiceRuntime &&) noexcept = delete;
@@ -198,7 +181,7 @@ public:
 
 private:
   RpcRuntimeCtx ctx_;
-  std::vector<std::unique_ptr<HandlerState>> handler_states_{};
+  std::vector<std::unique_ptr<HandlerState>> handler_states_;
 };
 
 } // namespace bapid

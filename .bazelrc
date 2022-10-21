@@ -7,6 +7,7 @@ build --config=clang_config \
 --cxxopt='-std=c++20' \
 --cxxopt='-DV8_COMPRESS_POINTERS=1' \
 --cxxopt='-DV8_31BIT_SMIS_ON_64BIT_ARCH=1' \
+--cxxopt='-DWTF_FOLLY_HACK=1' \
 --cxxopt='-Wno-nullability-completeness' \
 --cxxopt='-Wno-unknown-warning-option' \
 --sandbox_debug --verbose_failures

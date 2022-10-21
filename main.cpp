@@ -6,6 +6,21 @@
 #include <folly/logging/xlog.h>
 #include <string_view>
 
+#ifdef WTF_FOLLY_HACK
+#include <folly/tracing/AsyncStack.h>
+
+namespace folly {
+// wtf
+FOLLY_NOINLINE void
+resumeCoroutineWithNewAsyncStackRoot(coro::coroutine_handle<> h,
+                                     folly::AsyncStackFrame &frame) noexcept {
+  detail::ScopedAsyncStackRoot root;
+  root.activateFrame(frame);
+  h.resume();
+}
+} // namespace folly
+#endif
+
 namespace {
 constexpr mode_t kLogFilePerms = 0644;
 constexpr int kStdoutFileno = 1;
@@ -40,13 +55,13 @@ int main(int argc, char **argv) {
   }
 
   bapid::BapidServer server{rpc_addr};
-  server.serve(folly::makeSemiFutureWith(
-      [&, original_stderr = std::move(original_stderr)]() mutable {
-        writeMessage(original_stderr,
-                     fmt::format("serving at {:s}; log at {:s}", rpc_addr,
-                                 log_filename.empty() ? "-" : log_filename));
-        original_stderr.close();
-        XLOG(INFO) << "init";
-      }));
+  server.serve(folly::makeSemiFutureWith([&, original_stderr = std::move(
+                                                 original_stderr)]() mutable {
+    writeMessage(original_stderr,
+                 fmt::format("serving at {:s}; log at {:s}", rpc_addr,
+                             log_filename.empty() ? "terminal" : log_filename));
+    original_stderr.close();
+    XLOG(INFO) << "init";
+  }));
   return 0;
 }
