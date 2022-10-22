@@ -55,11 +55,12 @@ struct HandlerState {
   std::unique_ptr<CallDataBase> next_call_data{};
   std::list<std::unique_ptr<CallDataBase>> inflight_call_data{};
 
-  std::function<void(CallDataBase *)> proceed_fn;
+  std::function<folly::SemiFuture<folly::Unit>(CallDataBase *)> process_fn;
   std::function<std::unique_ptr<CallDataBase>()> receiving_next_request_fn;
 
   HandlerState(grpc::ServerCompletionQueue *cq, folly::Executor *executor);
   void receivingNextRequest();
+  void processCallData(CallDataBase *call_data);
 };
 
 struct RpcRuntimeCtx {
@@ -125,26 +126,15 @@ public:
       auto state =
           std::make_unique<HandlerState>(runtime_ctx.cq, runtime_ctx.executor);
 
-      state->proceed_fn = [this, process,
-                           state = state.get()](CallDataBase *baseData) {
+      state->process_fn = [this, process](CallDataBase *baseData) {
         auto *data = static_cast<CallData *>(baseData);
 
-        if (!data->processed) {
-          XCHECK(data == state->next_call_data.get());
-          state->receivingNextRequest();
-
-          (this->hanlders_.*process)(data->reply, data->request,
-                                     this->hanlder_ctx_)
-              .semi()
-              .deferValue([data = data](auto &&) {
-                data->processed = true;
-                data->responder.Finish(data->reply, grpc::Status::OK, data);
-              })
-              .via(state->executor);
-
-        } else {
-          state->inflight_call_data.erase(data->it);
-        }
+        return (this->hanlders_.*process)(data->reply, data->request,
+                                          this->hanlder_ctx_)
+            .semi()
+            .deferValue([data = data](auto &&) {
+              data->responder.Finish(data->reply, grpc::Status::OK, data);
+            });
       };
 
       state->receiving_next_request_fn =

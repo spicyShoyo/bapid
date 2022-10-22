@@ -19,6 +19,18 @@ void HandlerState::receivingNextRequest() {
   inflight_call_data.back()->it--;
 }
 
+void HandlerState::processCallData(CallDataBase *call_data) {
+  if (!call_data->processed) {
+    XCHECK(call_data == next_call_data.get());
+    receivingNextRequest();
+
+    call_data->processed = true;
+    process_fn(call_data).via(executor);
+  } else {
+    inflight_call_data.erase(call_data->it);
+  }
+}
+
 void RpcServiceRuntime::serve() const {
   void *tag{};
   bool ok{false};
@@ -28,7 +40,7 @@ void RpcServiceRuntime::serve() const {
     }
 
     auto *call_data = static_cast<CallDataBase *>(tag);
-    call_data->state->proceed_fn(call_data);
+    call_data->state->processCallData(call_data);
   }
 }
 
