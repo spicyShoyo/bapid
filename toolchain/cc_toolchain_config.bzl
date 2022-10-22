@@ -37,7 +37,7 @@ def _impl(ctx):
         ),
         tool_path(
             name = "nm",
-            path = "/usr/bin/nm",
+            path = "/usr/false",
         ),
         tool_path(
             name = "objdump",
@@ -49,6 +49,22 @@ def _impl(ctx):
         ),
     ]
 
+    homebrew_libs = [
+        "folly/2022.10.17.00/lib/libfolly.dylib",
+        "fmt/9.1.0/lib/libfmt.dylib",
+        "glog/0.6.0/lib/libglog.dylib",
+        "gflags/2.2.2/lib/libgflags.dylib",
+        "protobuf/21.8/lib/libprotobuf.dylib",
+        "grpc/1.50.0/lib/libgrpc++.1.50.0.dylib",
+        "grpc/1.50.0/lib/libgrpc++_reflection.1.50.0.dylib",
+        "grpc/1.50.0/lib/libgpr.28.0.0.dylib",
+        "v8/10.6.194.18/lib/libv8.dylib",
+        "v8/10.6.194.18/lib/libv8_libbase.dylib",
+        "v8/10.6.194.18/lib/libv8_libplatform.dylib",
+    ]
+
+    dylibs = ["/usr/local/Cellar/{}".format(lib) for lib in homebrew_libs]
+
     features = [
         feature(
             name = "default_linker_flags",
@@ -58,26 +74,7 @@ def _impl(ctx):
                     actions = all_link_actions,
                     flag_groups = ([
                         flag_group(
-                            flags = [
-                                "-lstdc++",
-                                "/usr/local/lib/libfolly.dylib",
-                                "/usr/local/lib/libfollybenchmark.dylib",
-                                "/usr/local/lib/libfolly_test_util.dylib",
-                                "/usr/local/lib/libfmt.dylib",
-                                "/usr/local/lib/libglog.dylib",
-                                "/usr/local/lib/libgflags.dylib",
-                                "/usr/local/lib/libprotobuf.dylib",
-                                "/usr/local/lib/libgrpc++.1.49.0.dylib",
-                                "/usr/local/lib/libgrpc++_alts.1.49.0.dylib",
-                                "/usr/local/lib/libgrpc++_error_details.1.49.0.dylib",
-                                "/usr/local/lib/libgrpc++_reflection.1.49.0.dylib",
-                                "/usr/local/lib/libgrpc++_test_config.1.49.0.dylib",
-                                "/usr/local/lib/libgrpc++_unsecure.1.49.0.dylib",
-                                "/usr/local/lib/libgpr.27.0.0.dylib",
-                                "/usr/local/lib/libv8.dylib",
-                                "/usr/local/lib/libv8_libbase.dylib",
-                                "/usr/local/lib/libv8_libplatform.dylib",
-                            ],
+                            flags = ["-lstdc++"] + dylibs,
                         ),
                     ]),
                 ),
