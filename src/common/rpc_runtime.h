@@ -13,6 +13,7 @@
 #include <memory>
 #include <tuple>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
 namespace bapid {
@@ -49,30 +50,46 @@ struct CallDataBase {
   bool processed{false};
 };
 
-struct HandlerState {
-  grpc::ServerCompletionQueue *cq;
-  folly::Executor *executor;
-  std::unique_ptr<CallDataBase> next_call_data{};
-  std::list<std::unique_ptr<CallDataBase>> inflight_call_data{};
-
-  std::function<folly::SemiFuture<folly::Unit>(CallDataBase *)> process_fn;
-  std::function<std::unique_ptr<CallDataBase>()> receiving_next_request_fn;
-
-  HandlerState(grpc::ServerCompletionQueue *cq, folly::Executor *executor);
-  void receivingNextRequest();
-  void processCallData(CallDataBase *call_data);
-};
-
 struct RpcRuntimeCtx {
   grpc::Service *service;
   grpc::ServerCompletionQueue *cq;
   folly::Executor *executor;
 };
 
+struct HandlerState;
+struct IHandlerRecord {
+  using ProcessFn =
+      std::function<folly::SemiFuture<folly::Unit>(CallDataBase *)>;
+  using ReceivingNextRequest =
+      std::function<std::unique_ptr<CallDataBase>(HandlerState *state)>;
+  using BindRuntimeFn =
+      std::function<std::unique_ptr<HandlerState>(RpcRuntimeCtx &runtime_ctx)>;
+
+  IHandlerRecord(ProcessFn process_fn,
+                 ReceivingNextRequest receiving_next_request_fn,
+                 BindRuntimeFn bind_runtime_fn);
+
+  ProcessFn process_fn;
+  ReceivingNextRequest receiving_next_request_fn;
+  BindRuntimeFn bind_runtime_fn;
+};
+
+struct HandlerState {
+  RpcRuntimeCtx ctx;
+  IHandlerRecord *record;
+
+  std::unique_ptr<CallDataBase> next_call_data{};
+  std::list<std::unique_ptr<CallDataBase>> inflight_call_data{};
+
+  HandlerState(RpcRuntimeCtx ctx, IHandlerRecord *record);
+  void receivingNextRequest();
+  void processCallData(CallDataBase *call_data);
+};
+
 class IRpcHanlderRegistry {
 public:
-  virtual std::vector<std::unique_ptr<HandlerState>>
-  bindRuntime(RpcRuntimeCtx &runtime_ctx) = 0;
+  std::vector<std::unique_ptr<HandlerState>>
+  bindRuntime(RpcRuntimeCtx &runtime_ctx);
 
   virtual ~IRpcHanlderRegistry() = default;
 
@@ -81,6 +98,9 @@ public:
   IRpcHanlderRegistry(IRpcHanlderRegistry &&) = default;
   IRpcHanlderRegistry &operator=(const IRpcHanlderRegistry &) = default;
   IRpcHanlderRegistry &operator=(IRpcHanlderRegistry &&) = default;
+
+protected:
+  std::vector<std::unique_ptr<IHandlerRecord>> hanlder_records_{};
 };
 
 template <typename TService, typename THanlderCtx, typename THanlders>
@@ -90,22 +110,9 @@ public:
   using Hanlder = folly::coro::Task<void> (THanlders::*)(Reply &reply,
                                                          const Request &request,
                                                          THanlderCtx &ctx);
-  using BindHandlerFn =
-      std::function<std::unique_ptr<HandlerState>(RpcRuntimeCtx &runtime_ctx)>;
 
   explicit RpcHanlderRegistry(THanlderCtx hanlder_ctx)
       : hanlder_ctx_{hanlder_ctx} {}
-
-  std::vector<std::unique_ptr<HandlerState>>
-  bindRuntime(RpcRuntimeCtx &runtime_ctx) override {
-    std::vector<std::unique_ptr<HandlerState>> states{};
-    std::for_each(hanlder_binders_.begin(), hanlder_binders_.end(),
-                  [&](auto &bind_handler) {
-                    states.emplace_back(bind_handler(runtime_ctx));
-                  });
-
-    return states;
-  }
 
   template <auto TGrpcRegisterFn,
             typename Request = typename unwrap_request<TGrpcRegisterFn>::type,
@@ -120,45 +127,47 @@ public:
           : CallDataBase{state}, responder{&grpc_ctx} {}
     };
 
-    BindHandlerFn bind_hanlder =
-        [this,
-         process](RpcRuntimeCtx &runtime_ctx) -> std::unique_ptr<HandlerState> {
-      auto state =
-          std::make_unique<HandlerState>(runtime_ctx.cq, runtime_ctx.executor);
-
-      state->process_fn = [this, process](CallDataBase *baseData) {
-        auto *data = static_cast<CallData *>(baseData);
-
-        return (this->hanlders_.*process)(data->reply, data->request,
-                                          this->hanlder_ctx_)
-            .semi()
-            .deferValue([data = data](auto &&) {
-              data->responder.Finish(data->reply, grpc::Status::OK, data);
-            });
-      };
-
-      state->receiving_next_request_fn =
-          [state = state.get(),
-           service = dynamic_cast<typename TService::AsyncService *>(
-               runtime_ctx.service)]() {
-            auto data = std::make_unique<CallData>(state);
-            (service->*TGrpcRegisterFn)(&(data->grpc_ctx), &(data->request),
-                                        &(data->responder), state->cq,
-                                        state->cq, data.get());
-            return data;
-          };
-
-      state->receivingNextRequest();
-      return state;
+    struct HanlderRecord : public IHandlerRecord {
+      HanlderRecord(THanlders *hanlder, Hanlder<Request, Reply> process,
+                    THanlderCtx *hanlder_ctx)
+          : IHandlerRecord(
+                /*process_fn=*/
+                [hanlder, process, hanlder_ctx](CallDataBase *baseData) {
+                  auto *data = static_cast<CallData *>(baseData);
+                  return (hanlder->*process)(data->reply, data->request,
+                                             *hanlder_ctx)
+                      .semi()
+                      .deferValue([data = data](auto &&) {
+                        data->responder.Finish(data->reply, grpc::Status::OK,
+                                               data);
+                      });
+                },
+                /*receiving_next_request_fn=*/
+                [](HandlerState *state) {
+                  auto *service =
+                      dynamic_cast<typename TService::AsyncService *>(
+                          state->ctx.service);
+                  auto data = std::make_unique<CallData>(state);
+                  (service->*TGrpcRegisterFn)(
+                      &(data->grpc_ctx), &(data->request), &(data->responder),
+                      state->ctx.cq, state->ctx.cq, data.get());
+                  return data;
+                },
+                /*bind_runtime_fn=*/
+                [this](RpcRuntimeCtx &ctx) {
+                  auto state = std::make_unique<HandlerState>(ctx, this);
+                  state->receivingNextRequest();
+                  return state;
+                }) {}
     };
 
-    hanlder_binders_.emplace_back(std::move(bind_hanlder));
+    hanlder_records_.emplace_back(
+        std::make_unique<HanlderRecord>(&hanlders_, process, &hanlder_ctx_));
   }
 
 private:
   THanlderCtx hanlder_ctx_;
   THanlders hanlders_{};
-  std::vector<BindHandlerFn> hanlder_binders_{};
 };
 
 class RpcServiceRuntime {

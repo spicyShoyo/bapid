@@ -2,12 +2,18 @@
 
 namespace bapid {
 
-HandlerState::HandlerState(grpc::ServerCompletionQueue *cq,
-                           folly::Executor *executor)
-    : cq{cq}, executor{executor} {}
+IHandlerRecord::IHandlerRecord(ProcessFn process_fn,
+                               ReceivingNextRequest receiving_next_request_fn,
+                               BindRuntimeFn bind_runtime_fn)
+    : process_fn{std::move(process_fn)}, receiving_next_request_fn{std::move(
+                                             receiving_next_request_fn)},
+      bind_runtime_fn{std::move(bind_runtime_fn)} {}
+
+HandlerState::HandlerState(RpcRuntimeCtx ctx, IHandlerRecord *record)
+    : ctx{ctx}, record{record} {}
 
 void HandlerState::receivingNextRequest() {
-  auto data = receiving_next_request_fn();
+  auto data = record->receiving_next_request_fn(this);
   data.swap(next_call_data);
 
   if (!data) {
@@ -25,10 +31,21 @@ void HandlerState::processCallData(CallDataBase *call_data) {
     receivingNextRequest();
 
     call_data->processed = true;
-    process_fn(call_data).via(executor);
+    record->process_fn(call_data).via(ctx.executor);
   } else {
     inflight_call_data.erase(call_data->it);
   }
+}
+
+std::vector<std::unique_ptr<HandlerState>>
+IRpcHanlderRegistry::bindRuntime(RpcRuntimeCtx &runtime_ctx) {
+  std::vector<std::unique_ptr<HandlerState>> states{};
+  std::for_each(hanlder_records_.begin(), hanlder_records_.end(),
+                [&](auto &record) {
+                  states.emplace_back(record->bind_runtime_fn(runtime_ctx));
+                });
+
+  return states;
 }
 
 void RpcServiceRuntime::serve() const {
