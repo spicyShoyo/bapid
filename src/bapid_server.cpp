@@ -28,17 +28,17 @@ folly::coro::Task<void> BapidHandlers::shutdown(bapid::Empty &reply,
 
 BapidServer::BapidServer(std::string addr, int numThreads)
     : RpcServerBase(std::move(addr), numThreads) {
+  auto service = std::make_unique<BapidService::AsyncService>();
   auto registry = std::make_unique<
       RpcHanlderRegistry<BapidService, BapidHandlerCtx, BapidHandlers>>(
-      BapidHandlerCtx{this});
+      service.get(), BapidHandlerCtx{this});
 
   registry->registerHandler<&BapidService::AsyncService::RequestPing>(
       &BapidHandlers::ping);
   registry->registerHandler<&BapidService::AsyncService::RequestShutdown>(
       &BapidHandlers::shutdown);
 
-  initService(std::make_unique<BapidService::AsyncService>(),
-              std::move(registry));
+  initService(std::move(service), std::move(registry));
 }
 
 } // namespace bapid

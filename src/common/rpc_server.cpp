@@ -23,6 +23,9 @@ RpcServerBase::RpcServerBase(std::string addr, int numThreads)
 
 void RpcServerBase::initService(std::unique_ptr<grpc::Service> service,
                                 std::unique_ptr<IRpcHanlderRegistry> registry) {
+  XCHECK(service);
+  XCHECK(registry);
+
   service_ = std::move(service);
   registry_ = std::move(registry);
 
@@ -43,8 +46,7 @@ folly::CancellationToken RpcServerBase::startRuntimes() {
 
   for (int i = 0; i < numThreads_; i++) {
     runtimes_.emplace_back(std::make_unique<RpcServiceRuntime>(
-        RpcRuntimeCtx{service_.get(), cqs_[i].get(), executor_.get()},
-        registry_));
+        RpcRuntimeCtx{cqs_[i].get(), executor_.get()}, registry_));
     threads_.emplace_back(
         [runtime = runtimes_.back().get(), guard = guard]() mutable {
           runtime->serve();

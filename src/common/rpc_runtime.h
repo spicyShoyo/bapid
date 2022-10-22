@@ -9,6 +9,7 @@
 #include <grpc/support/log.h>
 #include <grpcpp/completion_queue.h>
 #include <grpcpp/grpcpp.h>
+#include <grpcpp/impl/service_type.h>
 #include <list>
 #include <memory>
 #include <tuple>
@@ -51,7 +52,6 @@ struct CallDataBase {
 };
 
 struct RpcRuntimeCtx {
-  grpc::Service *service;
   grpc::ServerCompletionQueue *cq;
   folly::Executor *executor;
 };
@@ -111,8 +111,9 @@ public:
                                                          const Request &request,
                                                          THanlderCtx &ctx);
 
-  explicit RpcHanlderRegistry(THanlderCtx hanlder_ctx)
-      : hanlder_ctx_{hanlder_ctx} {}
+  RpcHanlderRegistry(grpc::Service *service, THanlderCtx hanlder_ctx)
+      : service_{dynamic_cast<typename TService::AsyncService *>(service)},
+        hanlder_ctx_{hanlder_ctx} {}
 
   template <auto TGrpcRegisterFn,
             typename Request = typename unwrap_request<TGrpcRegisterFn>::type,
@@ -128,7 +129,8 @@ public:
     };
 
     struct HanlderRecord : public IHandlerRecord {
-      HanlderRecord(THanlders *hanlder, Hanlder<Request, Reply> process,
+      HanlderRecord(typename TService::AsyncService *service,
+                    THanlders *hanlder, Hanlder<Request, Reply> process,
                     THanlderCtx *hanlder_ctx)
           : IHandlerRecord(
                 /*process_fn=*/
@@ -143,10 +145,7 @@ public:
                       });
                 },
                 /*receiving_next_request_fn=*/
-                [](HandlerState *state) {
-                  auto *service =
-                      dynamic_cast<typename TService::AsyncService *>(
-                          state->ctx.service);
+                [service](HandlerState *state) {
                   auto data = std::make_unique<CallData>(state);
                   (service->*TGrpcRegisterFn)(
                       &(data->grpc_ctx), &(data->request), &(data->responder),
@@ -161,11 +160,12 @@ public:
                 }) {}
     };
 
-    hanlder_records_.emplace_back(
-        std::make_unique<HanlderRecord>(&hanlders_, process, &hanlder_ctx_));
+    hanlder_records_.emplace_back(std::make_unique<HanlderRecord>(
+        service_, &hanlders_, process, &hanlder_ctx_));
   }
 
 private:
+  typename TService::AsyncService *service_;
   THanlderCtx hanlder_ctx_;
   THanlders hanlders_{};
 };
