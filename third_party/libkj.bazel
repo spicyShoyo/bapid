@@ -1,0 +1,20 @@
+load("@rules_cc//cc:defs.bzl", "cc_binary")
+package(default_visibility = ["//visibility:public"])
+
+cc_import(
+  name = "libkj",
+  static_library = "lib/libkj.a",
+)
+
+cc_import(
+  name = "libkj_async",
+  static_library = "lib/libkj-async.a",
+  deps = ["@libkj"],
+)
+
+cc_import(
+  name = "libkj_http",
+  static_library = "lib/libkj-http.a",
+  deps = [":libkj", ":libkj_async"],
+)
+

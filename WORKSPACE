@@ -47,3 +47,9 @@ load("@rules_proto//proto:repositories.bzl", "rules_proto_dependencies", "rules_
 rules_proto_dependencies()
 rules_proto_toolchains()
 
+new_local_repository(
+  name = "libkj",
+  path = "/usr/local/Cellar/capnp/0.10.2",
+  build_file = "third_party/libkj.bazel",
+)
+

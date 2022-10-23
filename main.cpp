@@ -4,6 +4,7 @@
 #include <folly/FileUtil.h>
 #include <folly/init/Init.h>
 #include <folly/logging/xlog.h>
+#include <kj/compat/http.h>
 #include <string_view>
 
 #ifdef WTF_FOLLY_HACK
@@ -37,6 +38,34 @@ void writeMessage(folly::File &file, std::string_view message) {
   (void)folly::writevFull(file.fd(), iov.data(), iov.size());
 }
 } // namespace
+
+void test() {
+  class Service final : public kj::HttpService {
+  public:
+    explicit Service(kj::HttpHeaderTable &table) : table{table} {}
+    kj::Promise<void> request(kj::HttpMethod method, kj::StringPtr url,
+                              const kj::HttpHeaders &headers,
+                              kj::AsyncInputStream &requestBody,
+                              Response &response) override {
+      auto out = response.send(200, "OK"_kj, kj::HttpHeaders(table));
+      auto msg = "hello there"_kj;
+      return out->write(msg.begin(), 11).attach(kj::mv(out));
+    }
+
+    kj::HttpHeaderTable &table;
+  };
+  kj::HttpHeaderTable::Builder builder{};
+  kj::TimerImpl timer{kj::origin<kj::TimePoint>()};
+  auto table = builder.build();
+  Service service{*table};
+  kj::HttpServer server{timer, *table, service};
+  auto io = kj::setupAsyncIo();
+  auto listener = io.provider->getNetwork()
+                      .parseAddress("localhost", 8000)
+                      .wait(io.waitScope)
+                      ->listen();
+  // server.listenHttp(*listener);
+}
 
 int main(int argc, char **argv) {
   folly::init(&argc, &argv);
