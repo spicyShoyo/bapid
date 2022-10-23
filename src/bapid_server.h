@@ -30,12 +30,12 @@ struct BapidHandlerCtx {
 };
 
 struct BapidHandlers {
-  folly::coro::Task<void> ping(bapid::PingReply &reply,
-                               const bapid::PingRequest &request,
+  folly::coro::Task<void> ping(bapidrpc::PingReply &reply,
+                               const bapidrpc::PingRequest &request,
                                BapidHandlerCtx &ctx);
 
-  folly::coro::Task<void> shutdown(bapid::Empty &reply,
-                                   const bapid::Empty &reuqest,
+  folly::coro::Task<void> shutdown(bapidrpc::Empty &reply,
+                                   const bapidrpc::Empty &reuqest,
                                    BapidHandlerCtx &ctx);
 };
 } // namespace bapid

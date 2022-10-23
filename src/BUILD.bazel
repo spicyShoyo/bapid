@@ -2,7 +2,16 @@ load("@rules_cc//cc:defs.bzl", "cc_binary")
 package(default_visibility = ["//visibility:public"])
 
 cc_library(
-  name = "server",
+  name = "http",
+  srcs = ["http_server.cpp"],
+  hdrs = ["http_server.h"],
+  deps = [
+      "@libkj//:libkj_http",
+  ]
+)
+
+cc_library(
+  name = "rpc",
   srcs = ["bapid_server.cpp"],
   hdrs = ["bapid_server.h"],
   deps = [

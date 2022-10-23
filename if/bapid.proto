@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package bapid;
+package bapidrpc;
 
 service BapidService {
   rpc Ping (PingRequest) returns (PingReply) {}

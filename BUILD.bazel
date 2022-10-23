@@ -5,8 +5,7 @@ cc_binary(
     name = "bapid",
     srcs = ["main.cpp"],
     deps = [
-      "//src:server",
-      "@libkj//:libkj_http",
+      "//src:rpc",
     ],
 )
 

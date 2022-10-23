@@ -4,11 +4,6 @@
 #include <folly/FileUtil.h>
 #include <folly/init/Init.h>
 #include <folly/logging/xlog.h>
-#include <kj/compat/http.h>
-#include <string_view>
-#include <sys/types.h>
-#include <thread>
-#include <unistd.h>
 
 #ifdef WTF_FOLLY_HACK
 #include <folly/tracing/AsyncStack.h>
@@ -40,68 +35,7 @@ void writeMessage(folly::File &file, std::string_view message) {
 
   (void)folly::writevFull(file.fd(), iov.data(), iov.size());
 }
-
-constexpr unsigned int kHttpOk = 200;
-constexpr kj::StringPtr kHttpOkStr = "OK"_kj;
 } // namespace
-
-void test() {
-  class Service final : public kj::HttpService,
-                        public kj::TaskSet::ErrorHandler {
-
-  public:
-    explicit Service(kj::HttpHeaderTable &table) : table_{table} {}
-    kj::Promise<void> request(kj::HttpMethod method, kj::StringPtr url,
-                              const kj::HttpHeaders &headers,
-                              kj::AsyncInputStream &requestBody,
-                              Response &response) override {
-      auto out = response.send(kHttpOk, kHttpOkStr, kj::HttpHeaders(table_));
-      auto msg = "hi"_kj;
-      return out->write(msg.begin(), msg.size()).attach(kj::mv(out));
-    }
-
-    kj::Promise<void> listenHttp(kj::Timer &timer,
-                                 kj::Own<kj::ConnectionReceiver> &&listener) {
-      kj::Own<kj::HttpServer> server =
-          kj::heap<kj::HttpServer>(timer, table_, *this);
-      return server->listenHttp(*listener)
-          .attach(std::move(listener))
-          .attach(std::move(server));
-    }
-
-  private:
-    void taskFailed(kj::Exception &&exception) override {
-      XLOG(INFO) << exception.getDescription().cStr();
-    }
-
-    kj::HttpHeaderTable &table_;
-  };
-  kj::HttpHeaderTable::Builder builder{};
-  auto table = builder.build();
-  Service service{*table};
-
-  auto io = kj::setupAsyncIo();
-  auto tasks = kj::heap<kj::TaskSet>(service);
-
-  tasks->add(io.provider->getNetwork()
-                 .parseAddress("localhost:8000")
-                 .then([&](kj::Own<kj::NetworkAddress> &&addr) {
-                   return service.listenHttp(io.provider->getTimer(),
-                                             addr->listen());
-                 }));
-  int fd[2]; // NOLINT
-  pipe(fd);
-  std::thread s([&]() {
-    std::this_thread::sleep_for(std::chrono::seconds(1));
-    write(fd[1], ".", sizeof(char)); // NOLINT
-  });
-  kj::evalLater([&]() {
-    static char _{};
-    auto shutdown = io.lowLevelProvider->wrapInputFd(fd[0]); // NOLINT
-    return shutdown->read(&_, sizeof(char)).attach(std::move(shutdown));
-  }).wait(io.waitScope);
-  s.join();
-}
 
 int main(int argc, char **argv) {
   folly::init(&argc, &argv);

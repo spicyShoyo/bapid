@@ -12,15 +12,17 @@
 #include <memory>
 
 namespace bapid {
-folly::coro::Task<void> BapidHandlers::ping(bapid::PingReply &reply,
-                                            const bapid::PingRequest &request,
-                                            BapidHandlerCtx &ctx) {
+
+folly::coro::Task<void>
+BapidHandlers::ping(bapidrpc::PingReply &reply,
+                    const bapidrpc::PingRequest &request,
+                    BapidHandlerCtx &ctx) {
   reply.set_message("hi: " + request.name());
   co_return;
 }
 
-folly::coro::Task<void> BapidHandlers::shutdown(bapid::Empty &reply,
-                                                const bapid::Empty &reuqest,
+folly::coro::Task<void> BapidHandlers::shutdown(bapidrpc::Empty &reply,
+                                                const bapidrpc::Empty &reuqest,
                                                 BapidHandlerCtx &ctx) {
   ctx.server->initiateShutdown();
   co_return;
@@ -28,6 +30,8 @@ folly::coro::Task<void> BapidHandlers::shutdown(bapid::Empty &reply,
 
 BapidServer::BapidServer(std::string addr, int numThreads)
     : RpcServerBase(std::move(addr), numThreads) {
+  using bapidrpc::BapidService;
+
   auto service = std::make_unique<BapidService::AsyncService>();
   auto registry = std::make_unique<
       RpcHanlderRegistry<BapidService, BapidHandlerCtx, BapidHandlers>>(
