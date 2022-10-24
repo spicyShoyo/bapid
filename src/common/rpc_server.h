@@ -21,7 +21,7 @@ namespace bapid {
 
 class RpcServerBase {
 public:
-  RpcServerBase(std::string addr, int numThreads);
+  RpcServerBase(std::string addr, int num_threads);
 
   virtual ~RpcServerBase();
   RpcServerBase(RpcServerBase &&other) noexcept = delete;
@@ -39,7 +39,7 @@ protected:
   folly::CancellationToken startRuntimes();
 
   const std::string addr_;
-  const int numThreads_;
+  const int num_threads_;
   folly::EventBase *evb_;
   folly::Executor::KeepAlive<> executor_ = folly::getGlobalCPUExecutor();
 

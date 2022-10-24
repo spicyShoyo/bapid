@@ -20,3 +20,14 @@ cc_library(
   ]
 )
 
+
+cc_library(
+  name = "bapid",
+  srcs = ["bapid.cpp"],
+  hdrs = ["bapid.h"],
+  deps = [
+    ":rpc",
+    ":http",
+  ]
+)
+

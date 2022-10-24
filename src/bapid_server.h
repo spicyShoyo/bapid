@@ -22,7 +22,7 @@ namespace bapid {
 
 class BapidServer : public RpcServerBase {
 public:
-  explicit BapidServer(std::string addr, int numThreads = 2);
+  explicit BapidServer(std::string addr, int num_threads = 2);
 };
 
 struct BapidHandlerCtx {

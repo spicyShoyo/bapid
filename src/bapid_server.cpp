@@ -28,8 +28,8 @@ folly::coro::Task<void> BapidHandlers::shutdown(bapidrpc::Empty &reply,
   co_return;
 };
 
-BapidServer::BapidServer(std::string addr, int numThreads)
-    : RpcServerBase(std::move(addr), numThreads) {
+BapidServer::BapidServer(std::string addr, int num_threads)
+    : RpcServerBase(std::move(addr), num_threads) {
   using bapidrpc::BapidService;
 
   auto service = std::make_unique<BapidService::AsyncService>();

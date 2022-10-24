@@ -1,4 +1,4 @@
-#include "src/bapid_server.h"
+#include "src/bapid.h"
 #include <fmt/core.h>
 #include <folly/File.h>
 #include <folly/FileUtil.h>
@@ -59,15 +59,19 @@ int main(int argc, char **argv) {
   folly::init(&argc, &argv);
   auto [original_stderr, log_filename] = initLogging(FLAGS_log_dir);
 
-  std::string rpc_addr = "localhost:50051";
-  bapid::BapidServer server{rpc_addr};
+  bapid::Bapid service{bapid::Bapid::Config{
+      .rpc_addr = "localhost:50051",
+      .http_addr = "localhost:8000",
+  }};
 
-  server.serve(folly::makeSemiFutureWith(
+  service.start(folly::makeSemiFutureWith(
       [&, original_stderr = std::move(original_stderr),
        log_filename = std::move(log_filename)]() mutable {
         writeMessage(
             original_stderr,
-            fmt::format("serving at {:s}; log at {:s}", rpc_addr,
+            fmt::format("http at {:s}; rpc at {:s}; log at {:s}",
+                        service.getConfig().http_addr,
+                        service.getConfig().rpc_addr,
                         log_filename.empty() ? "terminal" : log_filename));
         original_stderr.close();
         XLOG(INFO) << "init";

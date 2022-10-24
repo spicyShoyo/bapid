@@ -15,10 +15,10 @@ constexpr std::chrono::milliseconds kShutdownWait =
     std::chrono::milliseconds(200);
 };
 
-RpcServerBase::RpcServerBase(std::string addr, int numThreads)
-    : addr_{std::move(addr)}, numThreads_{numThreads},
+RpcServerBase::RpcServerBase(std::string addr, int num_threads)
+    : addr_{std::move(addr)}, num_threads_{num_threads},
       evb_{folly::EventBaseManager::get()->getEventBase()} {
-  XCHECK(numThreads > 0);
+  XCHECK(num_threads_ > 0);
 }
 
 void RpcServerBase::initService(std::unique_ptr<grpc::Service> service,
@@ -32,7 +32,7 @@ void RpcServerBase::initService(std::unique_ptr<grpc::Service> service,
   grpc::ServerBuilder builder{};
   builder.AddListeningPort(addr_, grpc::InsecureServerCredentials());
   builder.RegisterService(service_.get());
-  for (int i = 0; i < numThreads_; i++) {
+  for (int i = 0; i < num_threads_; i++) {
     cqs_.emplace_back(builder.AddCompletionQueue());
   }
   server_ = builder.BuildAndStart();
@@ -44,7 +44,7 @@ folly::CancellationToken RpcServerBase::startRuntimes() {
   auto guard = folly::copy_to_shared_ptr(folly::makeGuard(
       [source = std::move(source)]() { source.requestCancellation(); }));
 
-  for (int i = 0; i < numThreads_; i++) {
+  for (int i = 0; i < num_threads_; i++) {
     runtimes_.emplace_back(std::make_unique<RpcServiceRuntime>(
         RpcRuntimeCtx{cqs_[i].get(), executor_.get()}, registry_));
     threads_.emplace_back(

@@ -44,6 +44,7 @@ def refresh(args):
 
 @register("t")
 def test_rpc(*_):
+    print(check_call(["curl", "localhost:8000"]))
     check_call(["grpc_cli", "call", GRPC_ADDR, "Ping", "name: 'ok'"])
     check_call(["grpc_cli", "call", GRPC_ADDR, "Ping", "name: 'ok'"])
     check_call(["grpc_cli", "call", GRPC_ADDR, "Ping", "name: 'ok'"])
