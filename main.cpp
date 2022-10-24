@@ -4,6 +4,7 @@
 #include <folly/FileUtil.h>
 #include <folly/init/Init.h>
 #include <folly/logging/xlog.h>
+#include <tuple>
 
 #ifdef WTF_FOLLY_HACK
 #include <folly/tracing/AsyncStack.h>
@@ -35,32 +36,41 @@ void writeMessage(folly::File &file, std::string_view message) {
 
   (void)folly::writevFull(file.fd(), iov.data(), iov.size());
 }
-} // namespace
 
-int main(int argc, char **argv) {
-  folly::init(&argc, &argv);
-
-  std::string rpc_addr = "localhost:50051";
-  std::string log_filename;
-
+std::tuple<folly::File, std::string>
+initLogging(const std::string &flag_log_dir) {
   folly::File original_stderr =
       folly::File{kStderrFileno, /*ownsFd=*/false}.dupCloseOnExec();
-  if (!FLAGS_log_dir.empty()) {
-    log_filename = FLAGS_log_dir + "/bapid.log";
+  std::string log_filename;
+
+  if (!flag_log_dir.empty()) {
+    log_filename = flag_log_dir + "/bapid.log";
     folly::File logHandle(
         log_filename, O_APPEND | O_CREAT | O_WRONLY | O_CLOEXEC, kLogFilePerms);
     dup2(logHandle.fd(), kStdoutFileno);
     dup2(logHandle.fd(), kStderrFileno);
   }
 
+  return {std::move(original_stderr), std::move(log_filename)};
+}
+} // namespace
+
+int main(int argc, char **argv) {
+  folly::init(&argc, &argv);
+  auto [original_stderr, log_filename] = initLogging(FLAGS_log_dir);
+
+  std::string rpc_addr = "localhost:50051";
   bapid::BapidServer server{rpc_addr};
-  server.serve(folly::makeSemiFutureWith([&, original_stderr = std::move(
-                                                 original_stderr)]() mutable {
-    writeMessage(original_stderr,
-                 fmt::format("serving at {:s}; log at {:s}", rpc_addr,
-                             log_filename.empty() ? "terminal" : log_filename));
-    original_stderr.close();
-    XLOG(INFO) << "init";
-  }));
+
+  server.serve(folly::makeSemiFutureWith(
+      [&, original_stderr = std::move(original_stderr),
+       log_filename = std::move(log_filename)]() mutable {
+        writeMessage(
+            original_stderr,
+            fmt::format("serving at {:s}; log at {:s}", rpc_addr,
+                        log_filename.empty() ? "terminal" : log_filename));
+        original_stderr.close();
+        XLOG(INFO) << "init";
+      }));
   return 0;
 }
