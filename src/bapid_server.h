@@ -20,9 +20,17 @@
 
 namespace bapid {
 
+struct BapidHandlers;
 class BapidServer : public RpcServerBase {
 public:
-  explicit BapidServer(std::string addr, int num_threads = 2);
+  BapidServer(std::string addr, int num_threads, folly::EventBase *evb);
+  folly::SemiFuture<folly::Unit> getShutdownRequestedFut();
+
+private:
+  friend BapidHandlers;
+  void shutdownRequested();
+
+  folly::Promise<folly::Unit> shutdown_requested_{};
 };
 
 struct BapidHandlerCtx {

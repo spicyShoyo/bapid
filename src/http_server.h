@@ -1,5 +1,7 @@
 #pragma once
 
+#include <folly/Unit.h>
+#include <folly/futures/Future.h>
 #include <folly/logging/xlog.h>
 #include <kj/compat/http.h>
 #include <unistd.h>
@@ -17,7 +19,7 @@ public:
                             kj::AsyncInputStream &requestBody,
                             Response &response) override;
 
-  void start();
+  folly::SemiFuture<folly::Unit> start();
   void shutdown();
 
 private:
@@ -26,6 +28,8 @@ private:
 
   const std::string addr_;
   kj::Own<kj::HttpHeaderTable> table_;
+
+  folly::Promise<folly::Unit> shutdown_promise_{};
   int shutdown_in_{};
   std::thread server_thread_{};
 };

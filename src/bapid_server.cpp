@@ -24,12 +24,21 @@ BapidHandlers::ping(bapidrpc::PingReply &reply,
 folly::coro::Task<void> BapidHandlers::shutdown(bapidrpc::Empty &reply,
                                                 const bapidrpc::Empty &reuqest,
                                                 BapidHandlerCtx &ctx) {
-  ctx.server->initiateShutdown();
+  ctx.server->shutdownRequested();
   co_return;
 };
 
-BapidServer::BapidServer(std::string addr, int num_threads)
-    : RpcServerBase(std::move(addr), num_threads) {
+void BapidServer::shutdownRequested() {
+  XLOG(INFO) << "shutdown requested...";
+  shutdown_requested_.setValue(folly::Unit{});
+}
+folly::SemiFuture<folly::Unit> BapidServer::getShutdownRequestedFut() {
+  return shutdown_requested_.getSemiFuture();
+}
+
+BapidServer::BapidServer(std::string addr, int num_threads,
+                         folly::EventBase *evb)
+    : RpcServerBase(std::move(addr), num_threads, evb) {
   using bapidrpc::BapidService;
 
   auto service = std::make_unique<BapidService::AsyncService>();

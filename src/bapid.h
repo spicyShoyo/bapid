@@ -1,5 +1,7 @@
 #pragma once
 
+#include <folly/io/async/EventBaseManager.h>
+
 #include "src/bapid_server.h"
 #include "src/http_server.h"
 #include <string>
@@ -21,6 +23,7 @@ public:
 
 private:
   const Config config_;
+  folly::EventBase *evb_;
   BapidServer rpc_;
   BapidHttpServer http_;
 };

@@ -16,8 +16,12 @@ constexpr std::chrono::milliseconds kShutdownWait =
 };
 
 RpcServerBase::RpcServerBase(std::string addr, int num_threads)
-    : addr_{std::move(addr)}, num_threads_{num_threads},
-      evb_{folly::EventBaseManager::get()->getEventBase()} {
+    : RpcServerBase(std::move(addr), num_threads,
+                    folly::EventBaseManager::get()->getEventBase()) {}
+
+RpcServerBase::RpcServerBase(std::string addr, int num_threads,
+                             folly::EventBase *evb)
+    : addr_{std::move(addr)}, num_threads_{num_threads}, evb_{evb} {
   XCHECK(num_threads_ > 0);
 }
 
@@ -57,15 +61,29 @@ folly::CancellationToken RpcServerBase::startRuntimes() {
   return token;
 }
 
+folly::SemiFuture<folly::Unit> RpcServerBase::start() {
+  auto token = startRuntimes();
+  return folly::coro::co_withCancellation(
+             std::move(token),
+             folly::coro::co_invoke([this]() -> folly::coro::Task<void> {
+               drain();
+               co_return;
+             }))
+      .semi();
+}
+
 void RpcServerBase::serve(folly::SemiFuture<folly::Unit> &&on_serve) {
   auto token = startRuntimes();
-
-  folly::CancellationCallback cb(token, [=] {
+  folly::CancellationCallback cb(std::move(token), [=] {
     evb_->runInEventBaseThread([=] { evb_->terminateLoopSoon(); });
   });
+
   std::move(on_serve).via(evb_);
   evb_->loopForever();
+  drain();
+}
 
+void RpcServerBase::drain() {
   for (auto &thread : threads_) {
     thread.join();
   }
@@ -75,7 +93,10 @@ void RpcServerBase::serve(folly::SemiFuture<folly::Unit> &&on_serve) {
   runtimes_.clear();
 }
 
-RpcServerBase::~RpcServerBase() { XLOG(INFO) << "shutdown complete"; }
+RpcServerBase::~RpcServerBase() {
+  XCHECK(threads_.empty());
+  XLOG(INFO) << "rpc shutdown complete";
+}
 
 void RpcServerBase::initiateShutdown() {
   evb_->runInEventBaseThread([this] {

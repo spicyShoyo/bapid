@@ -19,17 +19,21 @@ kj::Promise<void> BapidHttpServer::request(kj::HttpMethod method,
   return out->write(msg.begin(), msg.size()).attach(kj::mv(out));
 }
 
-void BapidHttpServer::start() {
+folly::SemiFuture<folly::Unit> BapidHttpServer::start() {
   int fd[2]; // NOLINT
   pipe(fd);
   shutdown_in_ = fd[1];
   server_thread_ =
       std::thread{[shutdown_out = fd[0], this]() { serve(shutdown_out); }};
+  return shutdown_promise_.getSemiFuture();
 }
 
 void BapidHttpServer::shutdown() {
+  XLOG(INFO) << "shutting down http server...";
   write(shutdown_in_, ".", sizeof(char));
   server_thread_.join();
+  shutdown_promise_.setValue(folly::Unit{});
+  XLOG(INFO) << "http shutdown complete";
 }
 
 void BapidHttpServer::serve(int shutdown_out) {

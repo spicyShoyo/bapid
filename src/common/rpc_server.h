@@ -22,6 +22,7 @@ namespace bapid {
 class RpcServerBase {
 public:
   RpcServerBase(std::string addr, int num_threads);
+  RpcServerBase(std::string addr, int num_threads, folly::EventBase *evb_);
 
   virtual ~RpcServerBase();
   RpcServerBase(RpcServerBase &&other) noexcept = delete;
@@ -29,12 +30,14 @@ public:
   RpcServerBase &operator=(const RpcServerBase &other) = delete;
   RpcServerBase(const RpcServerBase &other) = delete;
 
+  folly::SemiFuture<folly::Unit> start();
   void serve(folly::SemiFuture<folly::Unit> &&on_serve);
   void initiateShutdown();
 
 protected:
   void initService(std::unique_ptr<grpc::Service> service,
                    std::unique_ptr<IRpcHanlderRegistry> registry);
+  void drain();
 
   folly::CancellationToken startRuntimes();
 
