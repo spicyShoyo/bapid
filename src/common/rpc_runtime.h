@@ -20,6 +20,7 @@
 namespace bapid {
 template <typename TFn> struct extract_args;
 
+// Extracts the i-th args of the function type
 template <typename TRes, typename TKlass, typename... TArgs>
 struct extract_args<TRes (TKlass::*)(TArgs...)> {
   template <size_t i> struct arg {
@@ -33,30 +34,43 @@ struct unwrap<TOuter<TInner>> {
   using type = TInner;
 };
 
+// Extracts the request type from the generated gRPC hanlder function
 template <auto TGrpcRegisterFn> struct unwrap_request {
   using type = std::remove_pointer_t<
       typename extract_args<decltype(TGrpcRegisterFn)>::template arg<1>::type>;
 };
 
+// Extracts the reply type from the generated gRPC hanlder function
 template <auto TGrpcRegisterFn> struct unwrap_reply {
   using type = typename unwrap<std::remove_pointer_t<typename extract_args<
       decltype(TGrpcRegisterFn)>::template arg<2>::type>>::type;
 };
 
 struct HandlerState;
+// Holds the state of a call of a gRPC method
+// Created when the runtime is ready to handle the next call
+// Populated (the request of this call) when the runtime handles the gRPC call
+// Deleted after the reply is sent
 struct CallDataBase {
   HandlerState *state;
   grpc::ServerContext grpc_ctx{};
+  // The handler state holds a std::list of CallData of inflight calls.
+  // When a call is finished, its CallData should be deleted. This iterator is
+  // used for deleting it from the list.
   std::list<std::unique_ptr<CallDataBase>>::iterator it;
+  // true if the hanlder has handled the call and a reply is ready.
   bool processed{false};
 };
 
+// Holds the runtime's completion queue and the executor for running the
+// handlers
 struct RpcRuntimeCtx {
   grpc::ServerCompletionQueue *cq;
   folly::Executor *executor;
 };
 
-struct HandlerState;
+// Responsible for setting up a runtime to start handling a gRPC method
+// For a gRPC service, there is one HanlderRecord for each method.
 struct IHandlerRecord {
   using ProcessFn =
       std::function<folly::SemiFuture<folly::Unit>(CallDataBase *)>;
@@ -69,11 +83,16 @@ struct IHandlerRecord {
                  ReceivingNextRequest receiving_next_request_fn,
                  BindRuntimeFn bind_runtime_fn);
 
+  // The busines logic for handling a call of the method
   ProcessFn process_fn;
+  // Creates a new CallData to be used for the next call
   ReceivingNextRequest receiving_next_request_fn;
+  // Sets up the runtime so that it can handle the gRPC methodd
   BindRuntimeFn bind_runtime_fn;
 };
 
+// Holds the state of the handler for a runtime
+// For a gRPC runtime, there is one HandlerState for each Handler bound to it.
 struct HandlerState {
   RpcRuntimeCtx ctx;
   IHandlerRecord *record;
@@ -170,12 +189,18 @@ private:
   THanlders hanlders_{};
 };
 
+// Responsible for listening to a gRPC completion queue and
+// calling handlers for the requests
 class RpcServiceRuntime {
 public:
   RpcServiceRuntime(RpcRuntimeCtx ctx,
                     std::unique_ptr<IRpcHanlderRegistry> &registry);
 
+  // Starts listening to the completion queue
+  // Returns when the queue is shutdown
   void serve() const;
+
+  // Responsible for draining the completion queue
   ~RpcServiceRuntime();
 
   RpcServiceRuntime(const RpcServiceRuntime &) = delete;
