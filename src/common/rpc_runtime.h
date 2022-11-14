@@ -105,6 +105,9 @@ struct HandlerState {
   void processCallData(CallDataBase *call_data);
 };
 
+// Interface of RpcHandlerRegistry. The registry holds the handler records and
+// is responsible for setting up a runtime to handle gRPC methods. For a gRPC
+// service, there is one RpcHanlderRegistry
 class IRpcHanlderRegistry {
 public:
   std::vector<std::unique_ptr<HandlerState>>
@@ -122,9 +125,14 @@ protected:
   std::vector<std::unique_ptr<IHandlerRecord>> hanlder_records_{};
 };
 
+// Template for the registry for a given gRPC service
 template <typename TService, typename THanlderCtx, typename THanlders>
 class RpcHanlderRegistry : public IRpcHanlderRegistry {
 public:
+  // The implementation of the business logic of the handler
+  // `request` is the request of the call, `ctx` is the additional
+  // service-specific context needed for handling the call, and `reply` is the
+  // result of the call.
   template <typename Request, typename Reply>
   using Hanlder = folly::coro::Task<void> (THanlders::*)(Reply &reply,
                                                          const Request &request,
@@ -134,6 +142,7 @@ public:
       : service_{dynamic_cast<typename TService::AsyncService *>(service)},
         hanlder_ctx_{hanlder_ctx} {}
 
+  // Creates the handler record for a hanlder
   template <auto TGrpcRegisterFn,
             typename Request = typename unwrap_request<TGrpcRegisterFn>::type,
             typename Reply = typename unwrap_reply<TGrpcRegisterFn>::type>

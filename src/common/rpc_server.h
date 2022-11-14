@@ -19,6 +19,7 @@
 
 namespace bapid {
 
+// RpcServerBase contains logic for running a gRPC service
 class RpcServerBase {
 public:
   RpcServerBase(std::string addr, int num_threads);
@@ -30,8 +31,15 @@ public:
   RpcServerBase &operator=(const RpcServerBase &other) = delete;
   RpcServerBase(const RpcServerBase &other) = delete;
 
+  // Starts the gRPC service. Returns a future that's fulfilled when the service
+  // is fully shutdown
   folly::SemiFuture<folly::Unit> start();
+
+  // Starts the gRPC service but blocks until the server is fully shutdown.
+  // `on_serve` is fulfilled when the server has started.
   void serve(folly::SemiFuture<folly::Unit> &&on_serve);
+
+  // Instructs the server to start shutting down
   void initiateShutdown();
 
 protected:
