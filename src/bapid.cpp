@@ -2,11 +2,10 @@
 
 namespace bapid {
 
-Bapid::Bapid(Config config)
-    : config_{std::move(config)},
-      evb_{folly::EventBaseManager::get()->getEventBase()},
-      rpc_{config_.rpc_addr, config_.rpc_num_threads, evb_},
-      http_{config_.http_addr} {}
+Bapid::Bapid(const Config &config)
+    : evb_{folly::EventBaseManager::get()->getEventBase()},
+      rpc_{config.rpc_addr, config.rpc_num_threads, evb_},
+      http_{config.http_addr} {}
 
 void Bapid::start(folly::SemiFuture<folly::Unit> &&on_serve) {
   auto rpc_fut = rpc_.start();
@@ -31,6 +30,4 @@ void Bapid::start(folly::SemiFuture<folly::Unit> &&on_serve) {
   std::move(on_serve).via(evb_);
   evb_->loopForever();
 }
-
-const Bapid::Config &Bapid::getConfig() { return config_; }
 } // namespace bapid
