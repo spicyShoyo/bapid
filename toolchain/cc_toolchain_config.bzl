@@ -50,14 +50,14 @@ def _impl(ctx):
     ]
 
     homebrew_libs = [
-        "folly/2022.10.17.00/lib/libfolly.dylib",
+        "folly/2022.11.14.00/lib/libfolly.dylib",
         "fmt/9.1.0/lib/libfmt.dylib",
         "glog/0.6.0/lib/libglog.dylib",
         "gflags/2.2.2/lib/libgflags.dylib",
-        "protobuf/21.8/lib/libprotobuf.dylib",
-        "grpc/1.50.0/lib/libgrpc++.1.50.0.dylib",
-        "grpc/1.50.0/lib/libgrpc++_reflection.1.50.0.dylib",
-        "grpc/1.50.0/lib/libgpr.28.0.0.dylib",
+        "protobuf/21.9_1/lib/libprotobuf.dylib",
+        "grpc/1.50.1/lib/libgrpc++.1.50.1.dylib",
+        "grpc/1.50.1/lib/libgrpc++_reflection.1.50.1.dylib",
+        "grpc/1.50.1/lib/libgpr.28.0.0.dylib",
         "v8/10.6.194.18/lib/libv8.dylib",
         "v8/10.6.194.18/lib/libv8_libbase.dylib",
         "v8/10.6.194.18/lib/libv8_libplatform.dylib",
@@ -111,7 +111,7 @@ def _impl(ctx):
         ctx = ctx,
         features = features,
         cxx_builtin_include_directories = [
-            "/Library/Developer/CommandLineTools/usr/lib/clang/13.1.6/include",
+            "/Library/Developer/CommandLineTools/usr/lib/clang/14.0.0/include",
             "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include",
             "/usr/local/include/",
         ],
