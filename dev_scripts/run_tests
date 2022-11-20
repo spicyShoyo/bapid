@@ -1,0 +1,17 @@
+#!/bin/bash
+
+BAZEL_ARGS="--strip=never --copt -g --cache_test_results=no"
+TEST_TARGET="//src/tests:test"
+
+while getopts ':v' 'OPTKEY'; do
+  case ${OPTKEY} in
+    v)
+      bazel test --test_output=all ${BAZEL_ARGS} ${TEST_TARGET}
+      exit 0
+      ;;
+  esac
+done
+
+bazel test ${BAZEL_ARGS} ${TEST_TARGET}
+
+

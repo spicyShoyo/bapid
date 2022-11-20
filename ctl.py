@@ -34,6 +34,10 @@ def shutdown(*_):
 def run(args):
     check_call(["./dev_scripts/run"] + args)
 
+@register("t")
+def run_test(args):
+    check_call(["./dev_scripts/run_tests"] + args)
+
 @register("dbg")
 def dbg(*_):
     check_call(["./dev_scripts/dbg"])
@@ -42,7 +46,7 @@ def dbg(*_):
 def refresh(args):
     check_call(["./dev_scripts/refresh"] + args)
 
-@register("t")
+@register("c")
 def test_rpc(*_):
     print(check_call(["curl", "localhost:8000"]))
     check_call(["grpc_cli", "call", GRPC_ADDR, "Ping", "name: 'ok'"])

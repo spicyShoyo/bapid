@@ -1,0 +1,6 @@
+py_test(
+  name = "test",
+  srcs = ["test_lib.py", "test_main.py"],
+  main = "test_main.py",
+  data = ["//:bapid"],
+)
