@@ -58,9 +58,9 @@ def _impl(ctx):
         "grpc/1.50.1/lib/libgrpc++.1.50.1.dylib",
         "grpc/1.50.1/lib/libgrpc++_reflection.1.50.1.dylib",
         "grpc/1.50.1/lib/libgpr.28.0.0.dylib",
-        "v8/10.6.194.18/lib/libv8.dylib",
-        "v8/10.6.194.18/lib/libv8_libbase.dylib",
-        "v8/10.6.194.18/lib/libv8_libplatform.dylib",
+        "apache-arrow/10.0.0/lib/libarrow.dylib",
+        "apache-arrow/10.0.0/lib/libarrow_dataset.dylib",
+        "apache-arrow/10.0.0/lib/libparquet.dylib",
     ]
 
     dylibs = ["/usr/local/Cellar/{}".format(lib) for lib in homebrew_libs]

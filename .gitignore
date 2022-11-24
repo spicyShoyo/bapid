@@ -1,5 +1,6 @@
 src/if
 logs
+out
 .vagrant/
 Vagrantfile
 
