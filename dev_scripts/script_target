@@ -2,14 +2,22 @@
 
 SCRIPT_TARGET=bapid
 IF_DIR=src/if
+BUILD_FLAGS="--strip=never --copt -g"
+RUN_FLAGS="--dataset_dir=$(pwd)/dataset --out_dir=$(pwd)/out"
 
-while getopts ':ti' 'OPTKEY'; do
+while getopts ':tibr' 'OPTKEY'; do
   case ${OPTKEY} in
     t)
       echo ${SCRIPT_TARGET}
       ;;
     i)
       echo ${IF_DIR}
+      ;;
+    b)
+      echo ${BUILD_FLAGS}
+      ;;
+    r)
+      echo ${RUN_FLAGS}
       ;;
   esac
 done

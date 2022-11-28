@@ -1,5 +1,8 @@
 #!/bin/bash
 
 SCRIPT_TARGET=$(./dev_scripts/script_target -t)
-bazel build --strip=never --copt -g ${SCRIPT_TARGET} && lldb ./bazel-bin/${SCRIPT_TARGET}
+BUILD_FLAGS=$(./dev_scripts/script_target -b)
+RUN_FLAGS=$(./dev_scripts/script_target -r)
+
+bazel build ${BUILD_FLAGS} ${SCRIPT_TARGET} && lldb ./bazel-bin/${SCRIPT_TARGET} -- ${RUN_FLAGS}
 

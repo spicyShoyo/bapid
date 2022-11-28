@@ -1,6 +1,7 @@
 #!/bin/bash
 
-BAZEL_ARGS="--strip=never --copt -g --cache_test_results=no"
+BUILD_FLAGS=$(./dev_scripts/script_target -b)
+BAZEL_ARGS="${BUILD_FLAGS} --cache_test_results=no"
 TEST_TARGET="//src/tests:test"
 
 while getopts ':v' 'OPTKEY'; do

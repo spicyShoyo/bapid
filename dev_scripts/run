@@ -1,14 +1,18 @@
 #!/bin/bash
 
 SCRIPT_TARGET=$(./dev_scripts/script_target -t)
+BUILD_FLAGS=$(./dev_scripts/script_target -b)
+RUN_FLAGS=$(./dev_scripts/script_target -r)
+RUN_CMD="bazel run ${BUILD_FLAGS} ${SCRIPT_TARGET} -- ${RUN_FLAGS}"
+
 while getopts ':l' 'OPTKEY'; do
   case ${OPTKEY} in
     l)
-      bazel run --strip=never --copt -g ${SCRIPT_TARGET} -- --log_dir=$(pwd)/logs --logbuflevel=-1
+      ${RUN_CMD} --log_dir=$(pwd)/logs --logbuflevel=-1
       exit 0
       ;;
   esac
 done
 
-bazel run --strip=never --copt -g ${SCRIPT_TARGET}
+${RUN_CMD}
 
