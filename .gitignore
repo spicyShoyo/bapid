@@ -1,7 +1,7 @@
 src/if
 logs
 out
-datset
+dataset
 .vagrant/
 Vagrantfile
 

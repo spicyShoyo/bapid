@@ -1,4 +1,5 @@
 #include "src/bapid_main.h"
+#include "src/arrow.h"
 #include <fmt/core.h>
 #include <folly/File.h>
 #include <folly/FileUtil.h>
@@ -80,6 +81,8 @@ int runBapidMain(int argc, char **argv) {
   if (!logging) {
     return kExitCodeError;
   }
+
+  test_arrow();
 
   auto [original_stderr, log_filename] = std::move(logging.value());
 

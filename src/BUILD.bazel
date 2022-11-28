@@ -32,9 +32,15 @@ cc_library(
 )
 
 cc_library(
+  name = "arrow",
+  srcs = ["arrow.cpp"],
+  hdrs = ["arrow.h"],
+)
+
+cc_library(
   name = "main",
   srcs = ["bapid_main.cpp"],
   hdrs = ["bapid_main.h"],
-  deps = [":bapid"]
+  deps = [":bapid", ":arrow"]
 )
 
