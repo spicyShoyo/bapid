@@ -40,6 +40,25 @@ get_dataset(const std::string &root_path) {
   return dataset;
 }
 
+arrow::Status
+read_sink(std::shared_ptr<cp::ExecPlan> &&plan,
+          std::shared_ptr<arrow::Schema> &&schema,
+          arrow::AsyncGenerator<std::optional<cp::ExecBatch>> &&sink_gen) {
+  std::shared_ptr<arrow::RecordBatchReader> sink_reader =
+      cp::MakeGeneratorReader(schema, std::move(sink_gen),
+                              cp::default_exec_context()->memory_pool());
+
+  ARROW_RETURN_NOT_OK(plan->StartProducing());
+  std::shared_ptr<arrow::Table> result_set;
+  ARROW_ASSIGN_OR_RAISE(result_set,
+                        arrow::Table::FromRecordBatchReader(sink_reader.get()));
+  std::cout << "Results : " << result_set->Slice(0, 1)->ToString() << std::endl;
+  plan->StopProducing();
+
+  auto future = plan->finished();
+  return future.status();
+}
+
 arrow::Status do_taxi(const std::string &dataset_dir,
                       const std::string &out_dir) {
   ARROW_ASSIGN_OR_RAISE(auto file_sys,
@@ -55,6 +74,7 @@ arrow::Status do_taxi(const std::string &dataset_dir,
   auto options = std::make_shared<ds::ScanOptions>();
   options->projection = cp::project({}, {});
   auto format = std::make_shared<arrow::dataset::ParquetFileFormat>();
+  arrow::AsyncGenerator<std::optional<cp::ExecBatch>> sink_gen;
 
   auto status =
       cp::Declaration::Sequence(
@@ -69,49 +89,18 @@ arrow::Status do_taxi(const std::string &dataset_dir,
                              cp::field_ref("total_amount"), cp::literal(30))}},
               {"project",
                cp::ProjectNodeOptions{{cp::field_ref("total_amount")}}},
-              {"write",
-               ds::WriteNodeOptions{
-                   {.file_write_options = format->DefaultWriteOptions(),
-                    .filesystem = file_sys,
-                    .existing_data_behavior =
-                        ds::ExistingDataBehavior::kOverwriteOrIgnore,
-                    .partitioning = std::make_shared<ds::HivePartitioning>(
-                        arrow::schema({})),
-                    .basename_template = "part{i}.parquet",
-                    .base_dir = out_dir}}},
+              {"sink", cp::SinkNodeOptions{&sink_gen}},
           })
           .AddToPlan(plan.get());
 
-  XLOG(INFO) << status.status();
-  ARROW_RETURN_NOT_OK(status);
-  ARROW_RETURN_NOT_OK(plan->StartProducing());
-  auto fut = plan->finished();
-  XLOG(INFO) << fut.status();
-  ARROW_RETURN_NOT_OK(fut.status());
-  fut.Wait();
+  auto schema = arrow::schema({
+      arrow::field("total_amount", arrow::float64()),
+  });
 
-  return arrow::Status::OK();
+  return read_sink(std::move(plan), std::move(schema), std::move(sink_gen));
 }
 
-arrow::Status do_peek(const std::string &out_dir) {
-  ARROW_ASSIGN_OR_RAISE(auto dataset, get_dataset(out_dir));
-  ARROW_ASSIGN_OR_RAISE(auto scan_builder, dataset->NewScan());
-  auto maybe_scanner = scan_builder->Finish();
-  std::cerr << maybe_scanner.status() << std::endl;
-  ARROW_ASSIGN_OR_RAISE(auto scanner, maybe_scanner);
-  ARROW_ASSIGN_OR_RAISE(auto table, scanner->ToTable());
-
-  std::cout << table->Slice(0, 1)->ToString() << std::endl;
-  std::cout << "Read " << table->num_rows() << " rows" << std::endl;
-  for (const auto &col : table->ColumnNames()) {
-    std::cout << "Col: " << col << std::endl;
-  }
-  return arrow::Status::OK();
-}
 } // namespace
 
-void test_arrow() {
-  XCHECK(do_taxi(FLAGS_dataset_dir, FLAGS_out_dir).ok());
-  XCHECK(do_peek(FLAGS_out_dir).ok());
-}
+void test_arrow() { XCHECK(do_taxi(FLAGS_dataset_dir, FLAGS_out_dir).ok()); }
 } // namespace bapid
