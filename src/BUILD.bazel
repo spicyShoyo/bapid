@@ -11,12 +11,19 @@ cc_library(
 )
 
 cc_library(
+  name = "arrow",
+  srcs = ["arrow.cpp"],
+  hdrs = ["arrow.h"],
+)
+
+cc_library(
   name = "rpc",
   srcs = ["bapid_server.cpp"],
   hdrs = ["bapid_server.h"],
   deps = [
     "//if:rpc_lib",
     "//src/common:rpc",
+    ":arrow",
   ]
 )
 
@@ -32,15 +39,9 @@ cc_library(
 )
 
 cc_library(
-  name = "arrow",
-  srcs = ["arrow.cpp"],
-  hdrs = ["arrow.h"],
-)
-
-cc_library(
   name = "main",
   srcs = ["bapid_main.cpp"],
   hdrs = ["bapid_main.h"],
-  deps = [":bapid", ":arrow"]
+  deps = [":bapid"]
 )
 

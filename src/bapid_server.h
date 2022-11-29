@@ -45,5 +45,9 @@ struct BapidHandlers {
   folly::coro::Task<void> shutdown(bapidrpc::Empty &reply,
                                    const bapidrpc::Empty &reuqest,
                                    BapidHandlerCtx &ctx);
+
+  folly::coro::Task<void> arrowTest(bapidrpc::Empty &reply,
+                                    const bapidrpc::Empty &reuqest,
+                                    BapidHandlerCtx &ctx);
 };
 } // namespace bapid

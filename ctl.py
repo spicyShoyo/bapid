@@ -54,6 +54,13 @@ def test_rpc(*_):
     check_call(["grpc_cli", "call", GRPC_ADDR, "Ping", "name: 'ok'"])
     check_call(["grpc_cli", "call", GRPC_ADDR, "Shutdown", ""])
 
+
+@register("a")
+def test_arrow(*_):
+    check_call(["grpc_cli", "call", GRPC_ADDR, "ArrowTest", ""])
+    check_call(["grpc_cli", "call", GRPC_ADDR, "Shutdown", ""])
+
+
 if __name__ == "__main__":
     if len(sys.argv) == 1:
         print('cmd: ', REGISTRY.keys())

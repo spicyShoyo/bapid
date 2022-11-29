@@ -1,5 +1,6 @@
 #include "src/bapid_server.h"
 #include "if/bapid.grpc.pb.h"
+#include "src/arrow.h"
 #include "src/common/rpc_runtime.h"
 #include "src/common/rpc_server.h"
 #include <atomic>
@@ -28,6 +29,13 @@ folly::coro::Task<void> BapidHandlers::shutdown(bapidrpc::Empty &reply,
   co_return;
 };
 
+folly::coro::Task<void> BapidHandlers::arrowTest(bapidrpc::Empty &reply,
+                                                 const bapidrpc::Empty &reuqest,
+                                                 BapidHandlerCtx &ctx) {
+  test_arrow();
+  co_return;
+}
+
 void BapidServer::shutdownRequested() {
   XLOG(INFO) << "shutdown requested...";
   shutdown_requested_.setValue(folly::Unit{});
@@ -50,6 +58,8 @@ BapidServer::BapidServer(std::string addr, int num_threads,
       &BapidHandlers::ping);
   registry->registerHandler<&BapidService::AsyncService::RequestShutdown>(
       &BapidHandlers::shutdown);
+  registry->registerHandler<&BapidService::AsyncService::RequestArrowTest>(
+      &BapidHandlers::arrowTest);
 
   initService(std::move(service), std::move(registry));
 }
