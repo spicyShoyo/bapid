@@ -6,6 +6,7 @@ service BapidService {
   rpc Ping (PingRequest) returns (PingReply) {}
   rpc Shutdown (Empty) returns (Empty) {}
   rpc ArrowTest (Empty) returns (Empty) {}
+  rpc RunSamplesQuery(SamplesQuery) returns (Empty) {}
 }
 
 message Empty {}
@@ -16,4 +17,31 @@ message PingRequest {
 
 message PingReply {
   string message = 1;
+}
+
+enum FilterOp {
+  EQ = 0;
+  NE = 1;
+  LT = 2;
+  GT = 3;
+  LE = 4;
+  GE = 5;
+  NONNULL = 6;
+  NULL = 7;
+}
+
+message Filter {
+  string col_name = 1;
+  FilterOp filter_op = 2;
+  repeated int64 int_vals = 3;
+  repeated string str_vals = 4;
+}
+
+message SamplesQuery {
+  int64 min_ts = 1;
+  optional int64 max_ts = 2;
+  repeated Filter int_filters = 3;
+  repeated Filter str_filters = 4;
+  repeated string int_col_names = 5;
+  repeated string istr_col_names = 6;
 }

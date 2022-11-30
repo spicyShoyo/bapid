@@ -13,6 +13,7 @@ Checks: |
   -cppcoreguidelines-non-private-member-variables-in-classes,
   -readability-convert-member-functions-to-static,
   -bugprone-lambda-function-name,
+  -bugprone-easily-swappable-parameters,
   -google-build-namespaces,
 WarningsAsErrors: ''
 CheckOptions:
