@@ -1,4 +1,6 @@
 #include "src/arrow.h"
+#include "if/bapid.pb.h"
+#include <algorithm>
 #include <arrow/api.h>
 #include <arrow/compute/exec/exec_plan.h>
 #include <arrow/dataset/file_parquet.h>
@@ -6,8 +8,10 @@
 #include <folly/Expected.h>
 #include <folly/logging/xlog.h>
 #include <iostream>
+#include <iterator>
 #include <memory>
 #include <parquet/arrow/writer.h>
+#include <stdexcept>
 #include <string_view>
 #include <utility>
 
@@ -91,24 +95,54 @@ SamplesQuery::SamplesQuery(cp::ExecFactoryRegistry *registry,
     : registry_(registry), plan_{std::move(plan)}, dataset_{
                                                        std::move(dataset)} {}
 
-SamplesQuery &SamplesQuery::filter() {
-  filters_.emplace_back(
-      cp::greater(cp::field_ref("total_amount"), cp::literal(30)));
+namespace {
+// TODO(liuz): implement
+cp::Expression getArrowExpForFilter(const bapidrpc::Filter &filter) {
+  switch (filter.op()) {
+  case bapidrpc::FilterOp::GT:
+    return cp::greater(cp::field_ref(filter.col_name()),
+                       cp::literal(filter.double_vals(0)));
+  default:
+    throw std::runtime_error("unimplemented");
+  }
+}
+
+const std::shared_ptr<arrow::DataType> &
+getArrowTypeForCol(const bapidrpc::Col &col) {
+  switch (col.type()) {
+  case bapidrpc::ColType::DOUBLE: {
+    return arrow::float64();
+  }
+  default:
+    throw std::runtime_error("unimplemented");
+  }
+}
+} // namespace
+
+SamplesQuery &SamplesQuery::filter(const bapidrpc::Filter &filter) {
+  filters_.emplace_back(getArrowExpForFilter(filter));
+  fields_.emplace(filter.col_name());
   return *this;
 }
 
-SamplesQuery &SamplesQuery::project() {
-  projects_.emplace_back(cp::field_ref("total_amount"));
+SamplesQuery &SamplesQuery::project(const bapidrpc::Col &col) {
+  projects_.emplace_back(cp::field_ref(col.name()));
+  fields_.emplace(col.name());
   result_set_schema_.emplace_back(
-      arrow::field("total_amount", arrow::float64()));
+      arrow::field(col.name(), getArrowTypeForCol(col)));
   return *this;
 }
 
 folly::Expected<SamplesQuery::RunnableQuery, std::string>
 SamplesQuery::finalize() && {
-  // TODO(liuz): projection for scanner and validation
   auto options = std::make_shared<ds::ScanOptions>();
-  options->projection = cp::project({}, {});
+
+  std::vector<cp::Expression> scanner_projects{};
+  std::transform(fields_.begin(), fields_.end(),
+                 std::back_inserter(scanner_projects),
+                 [](auto &field) { return cp::field_ref(field); });
+
+  options->projection = cp::project(std::move(scanner_projects), {});
   arrow::AsyncGenerator<std::optional<cp::ExecBatch>> sink_gen;
 
   decls_.emplace_back(cp::Declaration{"scan", ds::ScanNodeOptions{
@@ -186,7 +220,18 @@ SamplesQuery &SamplesQuery::take(int to_take) {
 void test_arrow() {
   auto table = BapidTable::fromFsDataset(FLAGS_dataset_dir, "taxi");
   XCHECK(table.hasValue());
-  auto query = table.value()->newSamplesQueryX().filter().project().take(2);
+
+  auto filter = bapidrpc::Filter{};
+  filter.set_col_name("total_amount");
+  filter.set_op(bapidrpc::FilterOp::GT);
+  filter.add_double_vals(30);
+
+  auto col = bapidrpc::Col{};
+  col.set_name("total_amount");
+  col.set_type(bapidrpc::ColType::DOUBLE);
+
+  auto query =
+      table.value()->newSamplesQueryX().filter(filter).project(col).take(2);
   auto result_set = std::move(query).finalize().value().gen().value();
   std::cout << "Results : " << result_set->ToString() << std::endl;
 }

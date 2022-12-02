@@ -1,3 +1,5 @@
+#include "if/bapid.grpc.pb.h"
+#include "if/bapid.pb.h"
 #include <arrow/api.h>
 #include <arrow/compute/exec/exec_plan.h>
 #include <arrow/dataset/file_parquet.h>
@@ -6,6 +8,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <unordered_set>
 
 namespace bapid {
 
@@ -38,9 +41,8 @@ public:
     std::optional<int> take_;
   };
 
-  // TODO(liuz): params
-  SamplesQuery &filter();
-  SamplesQuery &project();
+  SamplesQuery &filter(const bapidrpc::Filter &filter);
+  SamplesQuery &project(const bapidrpc::Col &col);
   SamplesQuery &take(int to_take);
   folly::Expected<RunnableQuery, std::string> finalize() &&;
 
@@ -50,6 +52,7 @@ private:
   std::shared_ptr<ds::Dataset> dataset_;
 
   std::vector<cp::Expression> filters_{};
+  std::unordered_set<std::string> fields_{};
   std::vector<cp::Expression> projects_{};
   std::vector<std::shared_ptr<arrow::Field>> result_set_schema_{};
   std::vector<cp::Declaration> decls_{};

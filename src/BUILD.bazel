@@ -14,6 +14,7 @@ cc_library(
   name = "arrow",
   srcs = ["arrow.cpp"],
   hdrs = ["arrow.h"],
+  deps = ["//if:rpc_lib"]
 )
 
 cc_library(
