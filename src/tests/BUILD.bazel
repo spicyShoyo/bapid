@@ -1,6 +1,16 @@
 py_test(
-  name = "test",
+  name = "e2e_test",
   srcs = ["test_lib.py", "test_main.py"],
   main = "test_main.py",
   data = ["//:bapid"],
+)
+
+cc_test(
+  name = "arrow_test",
+  srcs = ["arrow_test.cpp"],
+  data = glob(["fixtures/*.parquet"]),
+  deps = [
+    "@com_google_googletest//:gtest_main",
+    "//src:arrow",
+  ],
 )

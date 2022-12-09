@@ -27,7 +27,7 @@ namespace pq = parquet;
 namespace cp = arrow::compute;
 
 arrow::Result<std::shared_ptr<ds::Dataset>>
-get_fs_dataset(const std::string &root_path) {
+getFsDataset(const std::string &root_path) {
   ARROW_ASSIGN_OR_RAISE(auto file_sys, fs::FileSystemFromUriOrPath(root_path));
   auto format = std::make_shared<ds::ParquetFileFormat>();
 
@@ -46,12 +46,36 @@ get_fs_dataset(const std::string &root_path) {
 
   return dataset;
 }
+
+arrow::Status describeFsDatasetImpl(const std::string &root_path) {
+  ARROW_ASSIGN_OR_RAISE(auto dataset, getFsDataset(std::string{root_path}));
+  ARROW_ASSIGN_OR_RAISE(auto scan_builder, dataset->NewScan());
+  auto maybe_scanner = scan_builder->Finish();
+  ARROW_ASSIGN_OR_RAISE(auto scanner, maybe_scanner);
+  ARROW_ASSIGN_OR_RAISE(auto table, scanner->ToTable());
+
+  std::cout << "Total rows: " << table->num_rows()
+            << "; Table info: " << std::endl;
+  std::cout << table->Slice(0, 1)->ToString() << std::endl;
+  return arrow::Status::OK();
+}
+
 } // namespace
+
+/*static*/ folly::Expected<folly::Unit, std::string>
+BapidTable::describeFsDataset(const std::string &root_path) {
+  auto status = describeFsDatasetImpl(root_path);
+  if (status.ok()) {
+    return folly::Unit{};
+  }
+
+  return folly::makeUnexpected(status.ToString());
+}
 
 /*static*/
 folly::Expected<std::unique_ptr<BapidTable>, std::string>
 BapidTable::fromFsDataset(const std::string &dataset_dir, std::string name) {
-  auto dataset = get_fs_dataset(dataset_dir);
+  auto dataset = getFsDataset(dataset_dir);
   if (!dataset.ok()) {
     return folly::makeUnexpected(dataset.status().ToString());
   }
@@ -217,22 +241,37 @@ SamplesQuery &SamplesQuery::take(int to_take) {
   return *this;
 }
 
+bapidrpc::Col DBL_COL(std::string name) {
+  auto col = bapidrpc::Col{};
+  col.set_name(std::move(name));
+  col.set_type(bapidrpc::ColType::DOUBLE);
+  return col;
+}
+
+bapidrpc::Filter DBL_GT(std::string name, double val) {
+  auto filter = bapidrpc::Filter{};
+  filter.set_col_name(std::move(name));
+  filter.set_op(bapidrpc::FilterOp::GT);
+  filter.add_double_vals(val);
+  return filter;
+}
+
 void test_arrow() {
+  BapidTable::describeFsDataset(FLAGS_dataset_dir);
+
   auto table = BapidTable::fromFsDataset(FLAGS_dataset_dir, "taxi");
   XCHECK(table.hasValue());
 
-  auto filter = bapidrpc::Filter{};
-  filter.set_col_name("total_amount");
-  filter.set_op(bapidrpc::FilterOp::GT);
-  filter.add_double_vals(30);
-
-  auto col = bapidrpc::Col{};
-  col.set_name("total_amount");
-  col.set_type(bapidrpc::ColType::DOUBLE);
-
-  auto query =
-      table.value()->newSamplesQueryX().filter(filter).project(col).take(2);
+  auto query = table.value()
+                   ->newSamplesQueryX()
+                   .filter(DBL_GT("tip_amount", 30))
+                   .filter(DBL_GT("tolls_amount", 10))
+                   .project(DBL_COL("tip_amount"))
+                   .project(DBL_COL("tolls_amount"))
+                   .project(DBL_COL("total_amount"))
+                   .take(10);
   auto result_set = std::move(query).finalize().value().gen().value();
   std::cout << "Results : " << result_set->ToString() << std::endl;
 }
+
 } // namespace bapid

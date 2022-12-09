@@ -17,6 +17,9 @@ namespace ds = arrow::dataset;
 namespace pq = parquet;
 namespace cp = arrow::compute;
 
+bapidrpc::Col DBL_COL(std::string name);
+bapidrpc::Filter DBL_GT(std::string name, double val);
+
 class SamplesQuery {
 public:
   static folly::Expected<SamplesQuery, std::string>
@@ -61,6 +64,9 @@ private:
 
 class BapidTable {
 public:
+  static folly::Expected<folly::Unit, std::string>
+  describeFsDataset(const std::string &root_path);
+
   static folly::Expected<std::unique_ptr<BapidTable>, std::string>
   fromFsDataset(const std::string &dataset_dir, std::string name);
 

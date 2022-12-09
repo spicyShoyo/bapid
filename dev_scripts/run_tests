@@ -2,7 +2,7 @@
 
 BUILD_FLAGS=$(./dev_scripts/script_target -b)
 BAZEL_ARGS="${BUILD_FLAGS} --cache_test_results=no"
-TEST_TARGET="//src/tests:test"
+TEST_TARGET="//src/tests:e2e_test //src/tests:arrow_test"
 
 while getopts ':v' 'OPTKEY'; do
   case ${OPTKEY} in
