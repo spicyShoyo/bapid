@@ -41,14 +41,14 @@ getFsDataset(const std::string &root_path) {
 
   ARROW_ASSIGN_OR_RAISE(auto fragments, dataset->GetFragments())
   for (const auto &fragment : fragments) {
-    XLOG(INFO) << "Found fragment: " << (*fragment)->ToString() << std::endl;
+    XLOG(INFO) << "Found fragment: " << (*fragment)->ToString();
   }
 
   return dataset;
 }
 
 arrow::Status describeFsDatasetImpl(const std::string &root_path) {
-  ARROW_ASSIGN_OR_RAISE(auto dataset, getFsDataset(std::string{root_path}));
+  ARROW_ASSIGN_OR_RAISE(auto dataset, getFsDataset(root_path));
   ARROW_ASSIGN_OR_RAISE(auto scan_builder, dataset->NewScan());
   auto maybe_scanner = scan_builder->Finish();
   ARROW_ASSIGN_OR_RAISE(auto scanner, maybe_scanner);
