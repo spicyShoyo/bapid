@@ -150,9 +150,9 @@ SamplesQuery &SamplesQuery::filter(const bapidrpc::Filter &filter) {
 }
 
 SamplesQuery &SamplesQuery::project(const bapidrpc::Col &col) {
-  projects_.emplace_back(cp::field_ref(col.name()));
+  projects_.push_back(cp::field_ref(col.name()));
   fields_.emplace(col.name());
-  result_set_schema_.emplace_back(
+  result_set_schema_.push_back(
       arrow::field(col.name(), getArrowTypeForCol(col)));
   return *this;
 }
@@ -169,18 +169,16 @@ SamplesQuery::finalize() && {
   options->projection = cp::project(std::move(scanner_projects), {});
   arrow::AsyncGenerator<std::optional<cp::ExecBatch>> sink_gen;
 
-  decls_.emplace_back(cp::Declaration{"scan", ds::ScanNodeOptions{
-                                                  dataset_,
-                                                  options,
-                                              }});
+  decls_.emplace_back("scan", ds::ScanNodeOptions{
+                                  dataset_,
+                                  options,
+                              });
   for (auto &filter : filters_) {
-    decls_.emplace_back(
-        cp::Declaration{"filter", cp::FilterNodeOptions{filter}});
+    decls_.emplace_back("filter", cp::FilterNodeOptions{filter});
   }
 
-  decls_.emplace_back(
-      cp::Declaration{"project", cp::ProjectNodeOptions{projects_}});
-  decls_.emplace_back(cp::Declaration{"sink", cp::SinkNodeOptions{&sink_gen}});
+  decls_.emplace_back("project", cp::ProjectNodeOptions{projects_});
+  decls_.emplace_back("sink", cp::SinkNodeOptions{&sink_gen});
 
   auto result =
       cp::Declaration::Sequence(std::move(decls_)).AddToPlan(plan_.get());
