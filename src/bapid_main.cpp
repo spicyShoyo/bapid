@@ -4,6 +4,7 @@
 #include <folly/FileUtil.h>
 #include <folly/init/Init.h>
 #include <folly/logging/xlog.h>
+#include <string_view>
 #include <tuple>
 
 #ifdef WTF_FOLLY_HACK
@@ -23,13 +24,15 @@ resumeCoroutineWithNewAsyncStackRoot(coro::coroutine_handle<> h,
 
 namespace bapid {
 namespace {
+using namespace std::string_view_literals;
+
 constexpr int kExitCodeSuccess = 0;
 constexpr int kExitCodeError = 1;
 
 constexpr mode_t kLogFilePerms = 0644;
 constexpr int kStdoutFileno = 1;
 constexpr int kStderrFileno = 2;
-constexpr std::string_view kNewline("\n");
+constexpr auto kNewline{"\n"sv};
 
 void writeMessage(folly::File &file, std::string_view message) {
   std::array<iovec, 2> iov{};

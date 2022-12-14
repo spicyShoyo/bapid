@@ -164,7 +164,7 @@ SamplesQuery::finalize() && {
   std::vector<cp::Expression> scanner_projects{};
   std::transform(fields_.begin(), fields_.end(),
                  std::back_inserter(scanner_projects),
-                 [](auto &field) { return cp::field_ref(field); });
+                 [](const auto &field) { return cp::field_ref(field); });
 
   options->projection = cp::project(std::move(scanner_projects), {});
   arrow::AsyncGenerator<std::optional<cp::ExecBatch>> sink_gen;
@@ -173,7 +173,7 @@ SamplesQuery::finalize() && {
                                   dataset_,
                                   options,
                               });
-  for (auto &filter : filters_) {
+  for (const auto &filter : filters_) {
     decls_.emplace_back("filter", cp::FilterNodeOptions{filter});
   }
 
@@ -214,7 +214,7 @@ genImpl(const std::shared_ptr<cp::ExecPlan> &plan,
                         arrow::Table::FromRecordBatchReader(sink_reader.get()));
   plan->StopProducing();
 
-  auto future = plan->finished();
+  const auto future = plan->finished();
   ARROW_RETURN_NOT_OK(future.status());
   return result_set;
 }
